@@ -224,7 +224,6 @@ joy_object* op_dup() {
   }
 
   auto cur = new joy_object(*op_get_head());
-  std::cout << stack_ptr << std::endl;
   op_push(cur, cur->type);
 
   return cur;
@@ -236,7 +235,6 @@ joy_object* op_sub() {
 	return nullptr;
   }
 
-  // non abelian lol
   auto b = op_pop();
   auto a = op_pop();
 
@@ -274,8 +272,6 @@ joy_object* op_sub() {
 	auto flo_b = get_float(b);
 
 	auto res = float(int_a) - flo_b;
-	//std::cout << res << std::endl;
-	std::cout << res << std::endl;
 	c->float_data = res;
 	op_push(c, FLOAT);
  
@@ -298,6 +294,7 @@ joy_object* op_add() {
 	std::cout << "ERROR - need at least two operands for addition!\n";
 	return nullptr;
   }
+
   auto b = op_pop();
   auto a = op_pop();
 
@@ -343,7 +340,6 @@ joy_object* op_add() {
 	auto flo_b = get_float(b);
 	auto res = flo_a + flo_b;
 
-	std::cout << res << std::endl;
 	c->float_data = res;
 	op_push(c, FLOAT);
   }
@@ -355,7 +351,6 @@ joy_object* op_add() {
 	res += str_a;
 	res+= str_b;
 
-	std::cout << res << std::endl;
 	c->string_data = res;
 	op_push(c, STR);
   }
@@ -407,8 +402,6 @@ joy_object* op_mul() {
 	auto flo_b = get_float(b);
 
 	auto res = float(int_a) * flo_b;
-	//std::cout << res << std::endl;
-	std::cout << res << std::endl;
 	c->float_data = res;
 	op_push(c, FLOAT);
  
@@ -431,7 +424,6 @@ joy_object* op_div() {
 	std::cout << "ERROR - need at least two operands for divison!\n";
   }
 
-  // non abelian lol
   auto b = op_pop();
   auto a = op_pop();
 
@@ -467,7 +459,6 @@ joy_object* op_div() {
 	auto flo_b = get_float(b);
 
 	auto res = float(int_a) / flo_b;
-	//std::cout << res << std::endl;
 	c->float_data = res;
 	op_push(c, FLOAT);
  
@@ -938,10 +929,8 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 	  }
 	}
 	else if (*it == '+' || *it == '*' || *it == '/' || std::isalpha(*it)) {
-	  std::cout << "Parsing list ident!\n";
 		std::tie(it, o) = parse_ident(it, input); 
 		cur_list.push_back(o);
-		std::cout << "parsed list!\n";
 	}
 	else
 	  ++it;
@@ -1055,7 +1044,6 @@ void parse_line(std::string input) {
 	  //it = std::get<0>(parse_list(++it, &input));
 	  std::tie(it, o) = parse_list(++it, &input, LIST);
 	  op_push(o, LIST);
-	  std::cout << "pusehd list!";
 	  // ++it; ?
 	}
 	else if (*it == '{') {
@@ -1085,7 +1073,6 @@ void parse_line(std::string input) {
 	}
 	else if (*it == '+' || *it == '*' || *it == '/'
 			 ||*it == '>' || *it == '<' || *it == '-' || std::isalpha(*it)) {
-	  std::cout << "parsing ident!\n";
 	  std::tie(it, o) = parse_ident(it, &input, true); 
 	}
 	else
