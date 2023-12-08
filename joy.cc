@@ -17,17 +17,10 @@
  *  [] add bool handling to ops
  *  [] add list/set handling to ops
  *  [] add more ops
+ *  [] fix type checking (should happen before popping the values off somehow?)
  */
 
 #define STACK_SIZE 100
-
-//#define BOOL 0xfff7
-//#define INT 0xfffe000000000000
-//#define INT 0xff8f
-//#define STR 0xfff9
-//#define FLOAT 0xfffavoid fun1(void){
-//#define LIST 0xfffb
-//#define SET 0xfffc
 
 typedef void (*voidFunction)(void); 
 
@@ -206,7 +199,7 @@ joy_object* op_pop() {
   return stck[stack_ptr++];
 }
 
-joy_object* op_push(joy_object* obj, Type type) {
+joy_object* op_push(joy_object* obj, Type type, joy_object* cur_stack=*stck) {
   if (--stack_ptr == 0)
 	return nullptr; // mem error
 
@@ -820,10 +813,11 @@ parse_definition(std::string::const_iterator i, std::string* input) {
   return {i,o};
 }
 
-std::tuple<std::string::const_iterator, joy_object*>
+std::tuple<std::string::const_iterator, joy_object*, bool>
 parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) {
   std::string cur_ident;
-  
+  bool is_def = false;
+
   while(i != input->end()) {
 	if (*i == ' ' || *i == ']' || *i == '}') {
 	  break;
@@ -840,14 +834,14 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
 	  builtins[cur_ident]();	
 	//joy_object* cur_op = (joy_object*)op;
 	//cur_op();
-	return {i, o};
+	return {i, o, is_def};
   }
 
   // otherwise it points to a joy_object, which would be
-  // a user defined operation or value
-  
+  // a user defined operation or value 
   if (i != input->end()) {
 	if (peek(++i, input, "==")) {
+	  is_def = true;
 	  ++i;
 	  std::tie(i,o) = parse_definition(++i, input);
 	  op_store(o, cur_ident);
@@ -856,7 +850,7 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
   else {
 	o = op_retrieve(cur_ident);
   }
-  return {i, o};
+  return {i, o, is_def};
 }
 
 // returns a list of joy_objects that have been parsed
@@ -870,6 +864,7 @@ std::tuple<std::string::const_iterator, joy_object*>
 parse_list(std::string::const_iterator it, std::string* input, Type t) {
   std::vector<joy_object*> cur_list;
   joy_object* head;
+  bool is_def;
   if (t == LIST)
 	head = new joy_object(LIST);
   else
@@ -912,7 +907,7 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 		cur_list.push_back(o);
 	  }
 	  else {
-		std::tie(it, o) = parse_ident(it, input);
+		std::tie(it, o, is_def) = parse_ident(it, input);
 		cur_list.push_back(o);
 	  }
 	}
@@ -924,12 +919,12 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 		cur_list.push_back(o);
 	  }
 	  else {
-		std::tie(it, o) = parse_ident(it, input);
+		std::tie(it, o, is_def) = parse_ident(it, input);
 		cur_list.push_back(o);
 	  }
 	}
 	else if (*it == '+' || *it == '*' || *it == '/' || std::isalpha(*it)) {
-		std::tie(it, o) = parse_ident(it, input); 
+	  std::tie(it, o, is_def) = parse_ident(it, input); 
 		cur_list.push_back(o);
 	}
 	else
@@ -1023,57 +1018,64 @@ void print_stack() {
   }
 }
 
-void parse_line(std::string input) {
+void parse_line(std::string input, joy_object* cur_stack=*stck) {
   std::string::const_iterator it = input.begin();
-  
+  bool is_def = false;
   while(it != input.end()){	
 	joy_object* o = nullptr;
 	if (std::isdigit(*it)) {
 	  //it = std::get<std::string::const_iterator>(parse_numeric(it, &input));
 	  std::tie(it, o) = parse_numeric(it, &input);
-	  op_push(o, INT);
+	  op_push(o, INT, cur_stack);
 	}
 	else if (*it == '"') {
 	  //it = std::get<0>(parse_string(++it, &input));
 	  std::tie(it, o) = parse_string(++it, &input);
-	  op_push(o, STR);
+	  op_push(o, STR, cur_stack);
 	  it++;
 	}
 	//}
 	else if (*it == '['){
 	  //it = std::get<0>(parse_list(++it, &input));
 	  std::tie(it, o) = parse_list(++it, &input, LIST);
-	  op_push(o, LIST);
+	  op_push(o, LIST, cur_stack);
 	  // ++it; ?
 	}
 	else if (*it == '{') {
 	  //it = std::get<0>(parse_set(++it, &input));
 	  std::tie(it, o) = parse_set(++it, &input);
-	  op_push(o, SET);
+	  op_push(o, SET, cur_stack);
 	}
 	else if (*it == 't') {
 	  // true?
 	  if (peek(it, &input, "true")) {
 		it+=4;
 		o = new joy_object(true);
-		op_push(o, BOOL);
+		op_push(o, BOOL, cur_stack);
 	  }
-	  else
-		std::tie(it, o) = parse_ident(it, &input);
+	  else { // TODO: same for other parse_ident operations?
+		std::tie(it, o, is_def) = parse_ident(it, &input);
+	  }
 	}
 	else if (*it == 'f') {
 	  // false?
 	  if (peek(it, &input, "false")) {
 		it+=5;
 		o = new joy_object(false);
-		op_push(o, BOOL);
+		op_push(o, BOOL, cur_stack);
 	  }
-	  else
-		std::tie(it, o) = parse_ident(it, &input);
+	  else { // TODO: same for other parse_ident operations?
+		std::tie(it, o, is_def) = parse_ident(it, &input);
+	  }
 	}
 	else if (*it == '+' || *it == '*' || *it == '/'
 			 ||*it == '>' || *it == '<' || *it == '-' || std::isalpha(*it)) {
-	  std::tie(it, o) = parse_ident(it, &input, true); 
+	  std::tie(it, o, is_def) = parse_ident(it, &input, true); 
+	  // if that was not a defintion, push it to the stack
+	  if (!is_def) {
+		op_push(o, o->type, cur_stack);
+		op_comb_i(); // if it's a user def, it's stored as a list
+	  }
 	}
 	else
 	  ++it;
@@ -1088,7 +1090,7 @@ void run_interpreter() {
 	std::cout << "joy~> ";
 	print_stack();
 	std::getline(std::cin, input_line);
-	if(input_line == "EXIT")
+	if(input_line == "quit")
 	  break;
 	else
 	  parse_line(input_line);
@@ -1103,16 +1105,4 @@ int main() {
   printf("RUNNING JOYVM\n");
   setup_builtins();
   run_interpreter();
-
-  // float f = 3.14;
-
-  //joy_object* a = new joy_object(f);
-  //joy_object* b = new joy_object((uint64_t)2);
-
-  //op_push(a,FLOAT);
-  //op_push(b,INT);
-  //op_sub();
-  //joy_object* x = op_pop();
-  // joy_object* c = ((joy_object*) (x &  0xFFFFFFFFFFFF));
-  //std::cout << x->float_data << std::endl;
 }
