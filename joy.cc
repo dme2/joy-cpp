@@ -212,6 +212,15 @@ joy_object* op_pop() {
   return stck[stack_ptr++];
 }
 
+joy_object* op_peek(std::size_t offset) {
+  if (stack_ptr == STACK_SIZE) {
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+	
+  }
+  return stck[stack_ptr + offset];
+}
+
 joy_object* op_push(joy_object* obj, Type type, joy_object* cur_stack=*stck) {
   if (--stack_ptr == 0)
 	return nullptr; // mem error
@@ -301,8 +310,8 @@ joy_object* op_add() {
 	return nullptr;
   }
 
-  auto b = op_pop();
-  auto a = op_pop();
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -319,6 +328,9 @@ joy_object* op_add() {
 
 	auto res = int_a + int_b;
 	c->data = (void*) res;
+
+	op_pop();
+	op_pop();
 	op_push(c, INT);
   }
 
@@ -328,6 +340,9 @@ joy_object* op_add() {
 
 	auto res = flo_a + float(int_b);
 	c->float_data = res;
+
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -336,6 +351,9 @@ joy_object* op_add() {
 	auto flo_b = get_float(b);
 
 	auto res = float(int_a) + flo_b;
+
+	op_pop();
+	op_pop();
 	c->float_data = res;
 	op_push(c, FLOAT);
  
@@ -347,6 +365,9 @@ joy_object* op_add() {
 	auto res = flo_a + flo_b;
 
 	c->float_data = res;
+
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -357,6 +378,8 @@ joy_object* op_add() {
 	res += str_a;
 	res+= str_b;
 
+	op_pop();
+	op_pop();
 	c->string_data = res;
 	op_push(c, STR);
   }
@@ -888,6 +911,8 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
   }
   else {
 	o = op_retrieve(cur_ident);
+	if (o == nullptr)
+	  std::cout << "Identifier " << cur_ident << " not found!\n";
 	user_ident = true;
   }
   return {i, o, is_def, user_ident};
@@ -1051,7 +1076,7 @@ void print_data(std::variant<uint64_t,
 			  print_data(get_data(obj[i]), obj[i]);
 		  std::cout << "] ";
 		}
-		  //return;
+		  return;
 		}
 	  default:
 		break;
@@ -1066,7 +1091,7 @@ void print_stack() {
   while (temp_ptr >= stack_ptr) {
 	auto data = get_data(stck[temp_ptr]);
 	if (temp_ptr == stack_ptr)
-	  print_data(data, stck[temp_ptr], false);
+	  print_data(data, stck[temp_ptr], true);
 	else
 	  print_data(data, stck[temp_ptr]);
 	temp_ptr--;
@@ -1138,6 +1163,10 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
 			 ||*it == '>' || *it == '<' || *it == '-' || std::isalpha(*it)) {
 	  std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true); 
 	  // if that was not a defintion, push it to the stack
+	  if (o == nullptr) {
+		it = input.end();
+		continue;
+	  }
 	  if (user_ident) {
 		op_push(o, o->type, cur_stack);
 		op_comb_i(); // if it's a user def, it's stored as a list
