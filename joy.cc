@@ -18,7 +18,7 @@
  *  [] add bool handling to ops
  *  [] add list/set handling to ops
  *  [] add more ops
- *  [] fix type checking (should happen before popping the values off somehow?)
+ *  [x] fix type checking (should happen before popping the values off somehow?)
  *  [] add block (DEFINITION, LIBRA) parsing
  *  [] error handling
  *  [] garbage collection
@@ -250,8 +250,11 @@ joy_object* op_sub() {
 	return nullptr;
   }
 
-  auto b = op_pop();
-  auto a = op_pop();
+  //auto b = op_pop();
+  //auto a = op_pop();
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -263,13 +266,14 @@ joy_object* op_sub() {
   joy_object* c = new joy_object();
 
   // TODO: make switch here
-
   if (t1 == INT && t2 == INT) {
 	auto int_a = get_int(a);
 	auto int_b = get_int(b);
 
 	auto res = int_a - int_b;
 	c->data = (void*) res;
+	op_pop();
+	op_pop();
 	op_push(c, INT);
   }
 
@@ -288,6 +292,8 @@ joy_object* op_sub() {
 
 	auto res = float(int_a) - flo_b;
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
  
   }
@@ -298,6 +304,8 @@ joy_object* op_sub() {
 
 	auto res = flo_a - flo_b;
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -396,8 +404,8 @@ joy_object* op_mul() {
 	std::cout << "ERROR - need at least two operands for multiplication!\n";
   }
 
-  auto b = op_pop();
-  auto a = op_pop();
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -414,6 +422,8 @@ joy_object* op_mul() {
 
 	auto res = int_a * int_b;
 	c->data = (void*) res;
+	op_pop();
+	op_pop();
 	op_push(c, INT);
   }
 
@@ -423,6 +433,8 @@ joy_object* op_mul() {
 
 	auto res = flo_a * float(int_b);
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -432,6 +444,8 @@ joy_object* op_mul() {
 
 	auto res = float(int_a) * flo_b;
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
  
   }
@@ -442,6 +456,8 @@ joy_object* op_mul() {
 
 	auto res = flo_a * flo_b;
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -453,8 +469,8 @@ joy_object* op_div() {
 	std::cout << "ERROR - need at least two operands for divison!\n";
   }
 
-  auto b = op_pop();
-  auto a = op_pop();
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -471,6 +487,8 @@ joy_object* op_div() {
 
 	auto res = int_a / int_b;
 	c->data = (void*) res;
+	op_pop();
+	op_pop();
 	op_push(c, INT);
   }
 
@@ -480,6 +498,8 @@ joy_object* op_div() {
 
 	auto res = flo_a / float(int_b);
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -489,6 +509,8 @@ joy_object* op_div() {
 
 	auto res = float(int_a) / flo_b;
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
  
   }
@@ -499,6 +521,8 @@ joy_object* op_div() {
 
 	auto res = flo_a / flo_b;
 	c->float_data = res;
+	op_pop();
+	op_pop();
 	op_push(c, FLOAT);
   }
 
@@ -510,8 +534,8 @@ joy_object* op_lt() {
 	std::cout << "ERROR - need at least two operands for lessthan!\n";
   }
 
-  auto b = op_pop();
-  auto a = op_pop();
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -528,6 +552,8 @@ joy_object* op_lt() {
   else
 	c->data = (void*)true;
 
+  op_pop();
+  op_pop();
   op_push(c, c->type);
   return c;
 }
@@ -537,8 +563,8 @@ joy_object* op_gt() {
 	std::cout << "ERROR - need at least two operands for greaterthan!\n";
   }
 
-  auto b = op_pop();
-  auto a = op_pop();
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -554,6 +580,8 @@ joy_object* op_gt() {
   else
 	c->data = (void*)false;
 
+  op_pop();
+  op_pop();
   op_push(c, c->type);
   return c;
 }
@@ -563,8 +591,8 @@ joy_object* op_cons() {
 	std::cout << "ERROR - stack size less than 2!\n";
 	return nullptr;
   }
-  auto a = op_pop();
-  auto b = op_pop();
+  auto b = op_peek(0);
+  auto a = op_peek(1);
 
   auto t1 = get_type(a);
   auto t2 = get_type(b);
@@ -587,6 +615,8 @@ joy_object* op_cons() {
 	c.push_back(la[i]);
  
   auto c_obj = new joy_object(c);
+  op_pop();
+  op_pop();
   op_push(c_obj, LIST);
   return c_obj;
 }
@@ -709,13 +739,15 @@ void op_comb_i() {
 }
 
 void op_comb_map() {
-  if (cur_stack_size() < 2)
+  if (cur_stack_size() < 2) {
 	std::cout << "map expects 2 lists!\n";
+	return;
+  }
 
   // should be a single 'program' e.g. [dup +]
-  auto a = op_pop(); 
+  auto b = op_peek(0); 
   // should be a list of values  e.g. [1 2 3]
-  auto b = op_pop(); 
+  auto a = op_peek(1); 
   // puts [2 4 6] on the stack
 
   // verify that l_b is all ops
@@ -740,7 +772,26 @@ void op_comb_map() {
 	  return; // TODO Error
   }
   
+  // TODO:
+  // mutliple results?
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+  for(size_t i = 1; i < l_a.size(); i++) {
+	op_push(l_a[i], l_a[i]->type);
 
+	for (size_t j = 1; j < l_b.size(); j++) {
+	  l_b[j]->op();
+	}
+	auto res = op_pop();
+	res_list.push_back(res);
+  }
+
+  auto o = new joy_object(res_list);
+  op_pop();
+  op_pop();
+	
+  op_push(o, o->type);
   // TODO: can probably break this up into more smaller operators
   // but not sure atm
 }
@@ -784,7 +835,7 @@ std::tuple<std::string::const_iterator, joy_object*>
 parse_numeric(std::string::const_iterator i, std::string* input) {
   std::string cur_num;
   while(i != input->end()) {
-	if (std::isspace(*i)) {
+	if (!std::isdigit(*i)) { // TODO: Floats
 	  break;
 	}
 	cur_num += *i;  
@@ -945,12 +996,10 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 	  break;
 	}
 	if (std::isdigit(*it)) {
-	  //it = std::get<std::string::const_iterator>(parse_numeric(it, &input));
 	  std::tie(it, o) = parse_numeric(it, input);
 	  cur_list.push_back(o);
 	}
 	else if (*it == '"') {
-	  //it = std::get<0>(parse_string(++it, &input));
 	  std::tie(it, o) = parse_string(++it, input);
 	  cur_list.push_back(o);
 	  it++;
@@ -958,6 +1007,7 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 	else if (*it == '['){
 	  //it = std::get<0>(parse_list(++it, &input));
 	  std::tie(it, o) = parse_list(++it, input, LIST);
+	  std::cout << "PARSED_LIST" << std::endl;
 	  cur_list.push_back(o);
 	  // ++it; ?
 	}
