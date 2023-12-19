@@ -17,11 +17,40 @@
  *  [x] char parsing
  *  [] add bool handling to ops
  *  [] add list/set handling to ops
- *  [] add more ops
+ *  [] some ops and combinaors...
+ *     [] and
+ *     [] or
+ *     [] not
+ *     [] reverse
+ *     [x] dip
+ *     [] first
+ *     [] rest
+ *     [] at
+ *     [] ifte
+ *     [] step
+ *     [] filter
+ *     [x] fold
+ *     [] cleave
+ *     [] primrec
+ *     [] linrec
+ *     [] split
+ *     [] uncons
+ *     [] small 
+ *     [] binrec
+ *     [] pred
+ *     [] treerec
+ *     [] size
+ *     [] powerlist
+ *     [] swons
+ *     [x] x
+ *     ... and many more
  *  [x] fix type checking (should happen before popping the values off somehow?)
  *  [] add block (DEFINITION, LIBRA) parsing
  *  [] error handling
- *  [] garbage collection
+ *  [] garbage collection ? (joy doesn't really use variables in the same way as most
+       langs, so this might not be necessary. we just have to clean the stack out
+	   when necessary)
+ *  [] plan out recursive combinators
  */
 
 #define STACK_SIZE 1000
@@ -63,8 +92,6 @@ uint64_t stack_ptr = STACK_SIZE;
 
 // holds tagged pointers to joy objects
 joy_object* stck[STACK_SIZE];
-
-std::vector<std::unique_ptr<joy_object>> new_stack;
 
 // k: string, v: pointer to joy object
 std::unordered_map<std::string, joy_object*> heap;
@@ -145,7 +172,7 @@ get_data(joy_object* o) {
 
 // checks head of stack for a list of terms/values
 // then executes that list
-void execute_term();
+void execute_term(bool is_x);
 
 uint8_t check_stack(uint8_t x) {
   if (STACK_SIZE - stack_ptr >= x)
@@ -666,8 +693,28 @@ joy_object* op_rolldown() {
   return a;
 }
 
-void execute_term() {
-  auto cur_list = op_pop();
+joy_object* op_rotat() {
+  if (cur_stack_size() < 3) {
+	std::cout << "ERROR - stack size less than 3!\n";
+	return nullptr;
+  }
+  auto a = op_pop();
+  auto b = op_pop();
+  auto c = op_pop();
+
+  op_push(c, c->type);
+  op_push(b, b->type);
+  op_push(a, a->type);
+
+  return a;
+}
+
+void execute_term(bool is_x = false) {
+  joy_object* cur_list;
+  if (is_x == false) 
+	cur_list = op_pop();
+  else
+	cur_list = op_peek(0);
 
   if (cur_list->type != LIST)
 	return;
@@ -738,6 +785,25 @@ void op_comb_i() {
   execute_term();
 }
 
+void op_comb_x() {
+  if (op_get_head()->type != LIST)
+	std::cout << "x expects a LIST!\n";
+  execute_term(true);
+}
+
+void op_comb_dip() {
+  if (op_get_head()->type != LIST)
+	std::cout << "dip expects a LIST at the head position!\n";
+  auto a = op_pop();
+  auto b = op_pop();
+  op_push(a, a->type);
+  execute_term(false);
+  op_push(b, b->type);
+}
+
+// e.g.
+// [1 2 3] [dup +] map
+// -> [2 4 3]
 void op_comb_map() {
   if (cur_stack_size() < 2) {
 	std::cout << "map expects 2 lists!\n";
@@ -796,6 +862,49 @@ void op_comb_map() {
   // but not sure atm
 }
 
+// e.g.
+// [1 2 3] 0 [+] fold
+// -> 6
+void op_comb_fold() {
+  if (cur_stack_size() < 3) {
+	std::cout << "fold expects 3 objects!\n";
+	return;
+  }
+
+  // e.g. ...
+  // [+]
+  auto c = op_peek(0); 
+  // 0
+  auto b = op_peek(1); 
+  // [1 2 3]
+  auto a = op_peek(2);  
+
+  auto l_a = get_list(a);
+  auto l_c = get_list(c);
+
+  if (l_a.size() == 0 || l_c.size() == 0) {
+	std::cout << "Expected first and third objects to be lists!\n";
+	return;
+  }
+
+  // after type check...
+  op_pop();
+  op_pop();
+  op_pop();
+
+ 
+  op_push(b, b->type);
+  for(size_t i = 1; i < l_a.size(); i++) {
+	op_push(l_a[i], l_a[i]->type);
+	for (size_t j = 1; j < l_c.size(); j++) {
+	  l_c[j]->op();
+	}
+  }
+
+  //auto o = new joy_object(res);
+  // op_push(o, o->type);
+}
+
 /** SETUP BUILTINS **/
 //  std::unordered_map<std::string, op_ptr> builtins;
 void setup_builtins() {
@@ -808,6 +917,40 @@ void setup_builtins() {
   builtins["<"] = (voidFunction)op_lt;
   builtins[">"] = (voidFunction)op_gt;
   //builtins["%"] = (voidFunction)op_mod;
+  //builtins["or"] = (voidFunction)op_gt;
+  //builtins["xor"] = (voidFunction)op_or;
+  //builtins["and"] = (voidFunction)op_or;
+  //builtins["not"] = (voidFunction)op_or;
+  //builtins["neg"] = (voidFunction)op_or;
+  //builtins["abs"] = (voidFunction)op_or;
+  //builtins["acos"] = (voidFunction)op_or;
+  //builtins["asin"] = (voidFunction)op_or;
+  //builtins["atan"] = (voidFunction)op_or;
+  //builtins["atan2"] = (voidFunction)op_or;
+  //builtins["ceil"] = (voidFunction)op_or;
+  //builtins["cos"] = (voidFunction)op_or;
+  //builtins["cosh"] = (voidFunction)op_or;
+  //builtins["exp"] = (voidFunction)op_or;
+  //builtins["floor"] = (voidFunction)op_or;
+  //builtins["frexp"] = (voidFunction)op_or;
+  //builtins["ldexp"] = (voidFunction)op_or;
+  //builtins["log"] = (voidFunction)op_or;
+  //builtins["log10"] = (voidFunction)op_or;
+  //builtins["modf"] = (voidFunction)op_or;
+  //builtins["pow"] = (voidFunction)op_or;
+  //builtins["sin"] = (voidFunction)op_or;
+  //builtins["sqrt"] = (voidFunction)op_or;
+  //builtins["sinh"] = (voidFunction)op_or;
+  //builtins["tan"] = (voidFunction)op_or;
+  //builtins["tanh"] = (voidFunction)op_or;
+  //builtins["trunc"] = (voidFunction)op_or;
+  //builtins["srand"] = (voidFunction)op_or;
+  //builtins["pred"] = (voidFunction)op_or;
+  //builtins["succ"] = (voidFunction)op_or;
+  //builtins["max"] = (voidFunction)op_or;
+  //builtins["min"] = (voidFunction)op_or;
+  /** Files/Strings etc... **/
+
 
   /** stack ops**/
   builtins["clear"] = (voidFunction)op_clear_stack;
@@ -817,10 +960,19 @@ void setup_builtins() {
   builtins["swap"] = (voidFunction)op_swap;
   builtins["rollup"] = (voidFunction)op_rollup;
   builtins["rolldown"] = (voidFunction)op_rolldown;
+  builtins["rotate"] = (voidFunction)op_rolldown;
+
+  //builtins["popd"] = (voidFunction)op_popd;
+  //builtins["dupd"] = (voidFunction)op_dupd;
+  //builtins["swapd"] = (voidFunction)op_swapd;
+  //builtins["choice"] = (voidFunction)op_choice;
 
   /** combinators **/
   builtins["i"] = (voidFunction)op_comb_i;
+  builtins["x"] = (voidFunction)op_comb_x;
+  builtins["dip"] = (voidFunction)op_comb_dip;
   builtins["map"] = (voidFunction)op_comb_map;
+  builtins["fold"] = (voidFunction)op_comb_fold;
 }
 
 /** PARSER **/
@@ -1195,7 +1347,7 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
 		op_push(o, BOOL, cur_stack);
 	  }
 	  else { // TODO: same for other parse_ident operations?
-		std::tie(it, o, is_def, user_ident) = parse_ident(it, &input);
+		std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true);
 	  }
 	}
 	else if (*it == 'f') {
@@ -1206,7 +1358,7 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
 		op_push(o, BOOL, cur_stack);
 	  }
 	  else { // TODO: same for other parse_ident operations?
-		std::tie(it, o, is_def, user_ident) = parse_ident(it, &input);
+		std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true);
 	  }
 	}
 	else if (*it == '+' || *it == '*' || *it == '/'
