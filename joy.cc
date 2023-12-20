@@ -7,6 +7,7 @@
 #include <memory>
 #include <variant>
 #include <tuple>
+#include <algorithm>
 
 /*
  * TODO:
@@ -21,10 +22,10 @@
  *     [] and
  *     [] or
  *     [] not
- *     [] reverse
+ *     [x] reverse
  *     [x] dip
- *     [] first
- *     [] rest
+ *     [x] first
+ *     [x] rest
  *     [] at
  *     [] ifte
  *     [] step
@@ -39,7 +40,7 @@
  *     [] binrec
  *     [] pred
  *     [] treerec
- *     [] size
+ *     [x] size
  *     [] powerlist
  *     [] swons
  *     [x] x
@@ -68,14 +69,14 @@ struct joy_object {
   void* data;
   float float_data;
   std::string string_data;
-  std::vector<joy_object*> list_data;
+  std::vector<joy_object*> list_data{};
   set_vector set_data;
   voidFunction op;
   std::string ident;
   uint8_t list_len;
 
-  joy_object(float f) : float_data(f), type(FLOAT) {} 
-  joy_object(uint64_t i) : data((void*)i),type(INT)  {}
+  joy_object(float f) : float_data(f), type(FLOAT) {list_data.resize(0);} 
+  joy_object(int64_t i) : data((void*)i),type(INT)  {}
   joy_object(std::string s) : string_data(s) ,type(STR)  {}
   joy_object(std::string s, Type t) : string_data(s) ,type(t)  {}
   joy_object(std::vector<joy_object*> ob_list) : list_data(ob_list), type(LIST)  {}
@@ -102,8 +103,8 @@ std::unordered_map<std::string, voidFunction> builtins;
 
 Type get_type(joy_object* o) { return o->type; }
 
-uint64_t get_int(joy_object* o) {
-  return (uint64_t) o->data;
+int64_t get_int(joy_object* o) {
+  return (int64_t) o->data;
 }
 
 float get_float(joy_object* o) {
@@ -135,7 +136,7 @@ std::string get_op(joy_object* o) {
   return o->ident; 
 }
 
-std::variant<uint64_t, float, std::string, bool, std::vector<joy_object*>>
+std::variant<int64_t, float, std::string, bool, std::vector<joy_object*>>
 get_data(joy_object* o) {
   switch (o->type)
 	{
@@ -165,9 +166,9 @@ get_data(joy_object* o) {
 	  break;
 	defualt:
 	  // TODO FIX THIS
-	  return (uint64_t)0;
+	  return (int64_t)0;
 	} 
-	return (uint64_t)0;
+	return (int64_t)0;
 }
 
 // checks head of stack for a list of terms/values
@@ -196,7 +197,7 @@ joy_object* op_store(joy_object* obj, std::string name) {
 }
 
 joy_object* op_retrieve(std::string name) {
-  uint64_t found;
+  int64_t found;
   if (found = heap.find(name) == heap.end())
 	return nullptr;
 
@@ -269,6 +270,111 @@ joy_object* op_dup() {
   op_push(cur, cur->type);
 
   return cur;
+}
+
+joy_object* op_first() {
+  if (cur_stack_size() < 1){
+	std::cout << "ERROR - nothing on stack!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  if (a->type != STR && a->type != LIST) {
+	std::cout << "ERROR - first requires a string or a list!\n";
+	return nullptr;
+  }
+
+  if (a->type == STR) {
+	auto str = a->string_data;
+	auto res = str.substr(0,1);
+	auto res_o = new joy_object(res);
+	res_o->type = CHAR;
+	op_pop();
+	op_push(res_o, res_o->type);
+	return res_o;
+  }
+  else{
+	auto l_a = get_list(a);
+	auto res = new joy_object(l_a[1]);
+	res->type = l_a[1]->type;
+	op_pop();
+	op_push(res, res->type);
+	return res;
+  }
+}
+
+joy_object* op_rest() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - nothing on stack!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  if (a->type != STR && a->type != LIST) {
+	std::cout << "ERROR - first requires a string or a list!\n";
+	return nullptr;
+  }
+
+  if (a->type == STR) {
+	auto str = a->string_data;
+	auto res = str.substr(1,str.length());
+	auto res_o = new joy_object(res);
+	res_o->type = STR;
+	op_pop();
+	op_push(res_o, res_o->type);
+	return res_o;
+  }
+  else{
+	auto l_a = get_list(a);
+	std::vector<joy_object*> res_l;
+	auto head = new joy_object(LIST);
+	res_l.push_back(head);
+	for (int i = 2; i < l_a.size(); i++) {
+	  res_l.push_back(l_a[i]);
+	}
+	auto res = new joy_object(res_l);
+	op_pop();
+	op_push(res, res->type);
+	return res;
+  }
+}
+
+joy_object* op_reverse() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - empty stack!\n";
+	return nullptr;
+  }
+
+    auto a = op_peek(0);
+
+  if (a->type != STR && a->type != LIST) {
+	std::cout << "ERROR - first requires a string or a list!\n";
+	return nullptr;
+  }
+
+  if (a->type == STR) {
+	auto str = a->string_data;
+	std::reverse(str.begin(), str.end());
+	auto res_o = new joy_object(str);
+	op_pop();
+	op_push(res_o, res_o->type);
+	return res_o;
+  }
+  else{
+	auto l_a = get_list(a);
+	std::vector<joy_object*> res_l;
+	auto head = new joy_object(LIST);
+	res_l.push_back(head);
+	for (int i = l_a.size()-1; i > 0; i--){
+	  res_l.push_back(l_a[i]);
+	}
+	auto res = new joy_object(res_l);
+	op_pop();
+	op_push(res, res->type);
+	return res;
+  }
+
 }
 
 joy_object* op_sub() {
@@ -613,6 +719,8 @@ joy_object* op_gt() {
   return c;
 }
 
+// TODO:
+//  fix this 
 joy_object* op_cons() {
   if (cur_stack_size() < 2) {
 	std::cout << "ERROR - stack size less than 2!\n";
@@ -624,22 +732,21 @@ joy_object* op_cons() {
   auto t1 = get_type(a);
   auto t2 = get_type(b);
 
-  if (t1 != LIST or t2 != LIST) {
-	std::cout << "ERROR - Needs 2 list!\n";
+  // TODO: sets
+  if (t2 != LIST) {
+	std::cout << "ERROR - second param should be a list!\n";
 	return nullptr;
   }
 
-  auto la = get_list(a);
   auto lb = get_list(b);
 
 
   std::vector<joy_object*> c;
   joy_object* head = new joy_object(LIST);
   c.push_back(head);
- for (int i = 1; i < lb.size(); i++)
+  c.push_back(a);
+  for (int i = 1; i < lb.size(); i++)
 	c.push_back(lb[i]);
-  for (int i = 1; i < la.size(); i++)
-	c.push_back(la[i]);
  
   auto c_obj = new joy_object(c);
   op_pop();
@@ -648,9 +755,38 @@ joy_object* op_cons() {
   return c_obj;
 }
 
+joy_object* op_size(bool exec = true) {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR on size - stack size less than 1!\n";
+	return nullptr;
+  }
+  auto a = op_peek(0);
+  auto l_a = get_list(a);
+  auto sz = (int64_t)l_a.size();
+  auto res = sz == 0 ? new joy_object(sz) : new joy_object(sz-1);
+  if (exec) {
+	op_pop();
+	op_push(res, INT);
+  }
+  return res;
+}
+
+joy_object* op_small() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR on size - stack size less than 1!\n";
+	return nullptr;
+  }
+  auto res1 = op_size(false);
+  auto i_res = get_int(res1);
+  auto res = i_res <= 1 ? new joy_object(true) : new joy_object(false);
+  op_pop();
+  op_push(res, BOOL);
+  return res;
+}
+
 joy_object* op_swap() {
   if (cur_stack_size() < 2) {
-	std::cout << "ERROR - stack size less than 2!\n";
+	std::cout << "ERROR on swap - stack size less than 2!\n";
 	return nullptr;
   }
   auto a = op_pop();
@@ -659,6 +795,15 @@ joy_object* op_swap() {
   op_push(a, a->type);
   op_push(b, b->type);
   return a;
+}
+
+joy_object* op_swons() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - stack size less than 2\n";
+	return nullptr;
+  }
+  op_swap();
+  return (op_cons());
 }
 
 joy_object* op_rollup() {
@@ -949,18 +1094,24 @@ void setup_builtins() {
   //builtins["succ"] = (voidFunction)op_or;
   //builtins["max"] = (voidFunction)op_or;
   //builtins["min"] = (voidFunction)op_or;
-  /** Files/Strings etc... **/
+  /** files/strings etc... **/
 
 
   /** stack ops**/
   builtins["clear"] = (voidFunction)op_clear_stack;
   builtins["pop"] = (voidFunction)op_pop;
   builtins["dup"] = (voidFunction)op_dup;
+  builtins["first"] = (voidFunction)op_first;
+  builtins["rest"] = (voidFunction)op_rest;
   builtins["cons"] = (voidFunction)op_cons;
   builtins["swap"] = (voidFunction)op_swap;
+  builtins["swons"] = (voidFunction)op_swons;
   builtins["rollup"] = (voidFunction)op_rollup;
   builtins["rolldown"] = (voidFunction)op_rolldown;
   builtins["rotate"] = (voidFunction)op_rolldown;
+  builtins["size"] = (voidFunction)op_size;
+  builtins["small"] = (voidFunction)op_small;
+  builtins["reverse"] = (voidFunction)op_reverse;
 
   //builtins["popd"] = (voidFunction)op_popd;
   //builtins["dupd"] = (voidFunction)op_dupd;
@@ -994,7 +1145,7 @@ parse_numeric(std::string::const_iterator i, std::string* input) {
 	i++;
   }
 
-  auto as_int = (uint64_t) stoi(cur_num);
+  auto as_int = (int64_t) stoi(cur_num);
   auto o = new joy_object(as_int);
   //op_push(o, INT);
   return {i,o};
@@ -1227,13 +1378,13 @@ parse_set(std::string::const_iterator i, std::string* input) {
   return {i, cur_obj};
 }
 
-void print_data(std::variant<uint64_t,
+void print_data(std::variant<int64_t,
 				float, std::string, bool,
 				std::vector<joy_object*>> data, joy_object* o, bool print_space = true) {
  	switch(data.index())
 	  {
 	  case 0:
-		std::cout << std::get<uint64_t>(data);
+		std::cout << std::get<int64_t>(data);
 		break;
 	  case 1:
 		std::cout << std::get<float>(data);
