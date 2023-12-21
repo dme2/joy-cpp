@@ -1,4 +1,3 @@
-An implementation of the joy programming language in c++
+A fairly straightforaward implementation of the joy programming language.
 
-compile with:
-    g++ joy.cpp --std=c++20 -o joy
+compile with: g++ joy.cpp --std=c++17 -o joy (or just type make)

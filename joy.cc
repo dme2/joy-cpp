@@ -1,48 +1,51 @@
-#include <cstdint>
-#include <iostream>
-#include <string>
-#include <cassert>
-#include <unordered_map>
-#include <vector>
-#include <memory>
-#include <variant>
-#include <tuple>
 #include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
 /*
  * TODO:
  *  [x] setup builtin op dictionary
  *  [x] finish definition parsing
  *  [x] test sets
+ *  [x] float parsing
+ *  [] error checking on parsing 
  *  [?] fix list parsing
  *  [x] char parsing
  *  [] add bool handling to ops
  *  [] add list/set handling to ops
  *  [] some ops and combinaors...
- *     [] and
- *     [] or
- *     [] not
+ *     [x] and
+ *     [x] or
+ *     [x] not
  *     [x] reverse
  *     [x] dip
  *     [x] first
  *     [x] rest
- *     [] at
+ *     [x] at
  *     [] ifte
  *     [] step
  *     [] filter
  *     [x] fold
- *     [] cleave
+ *     [x] cleave
  *     [] primrec
  *     [] linrec
  *     [] split
  *     [] uncons
- *     [] small 
+ *     [x] small 
  *     [] binrec
  *     [] pred
  *     [] treerec
  *     [x] size
  *     [] powerlist
- *     [] swons
+ *     [x] swons
  *     [x] x
  *     ... and many more
  *  [x] fix type checking (should happen before popping the values off somehow?)
@@ -303,6 +306,76 @@ joy_object* op_first() {
   }
 }
 
+joy_object* op_at() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for at!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+
+  joy_object* c;
+  if (t1 == INT && t2 == LIST) {
+	auto int_a = get_int(a);
+	auto l_b = get_list(b);
+
+	if (int_a >= l_b.size()-1) {
+	  std::cout << "index out of bounds!\n";
+	  return nullptr;
+	}
+	auto res = l_b[int_a+1];
+	op_pop();
+	op_pop();
+	op_push(res, res->type);
+  }
+  else {
+	std::cout << "type error - at requires an index and a list" ;
+	return nullptr;
+  }
+
+  return c;
+}
+
+joy_object* op_eq() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for at!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+
+  // TODO: sets
+  joy_object* c;
+  if (t1 == INT && t2 == INT) {
+	auto int_a = get_int(a);
+	auto int_b = get_int(b);
+
+	auto res = int_a == int_b;
+	auto res_o = new joy_object(res);
+	op_pop();
+	op_pop();
+	op_push(res_o, BOOL);
+  }
+  else {
+	std::cout << "type error - at requires an index and a list" ;
+	return nullptr;
+  }
+
+  return c;
+}
+
 joy_object* op_rest() {
   if (cur_stack_size() < 1) {
 	std::cout << "ERROR - nothing on stack!\n";
@@ -527,8 +600,136 @@ joy_object* op_add() {
 
   else {
 	std::cout << "TYPE ERROR!\n";
+	return nullptr;
   }
 
+  return c;
+}
+
+joy_object* op_not () {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == BOOL) {
+	auto bool_a = get_bool(a);
+	auto res = !bool_a;
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, BOOL);
+  }
+  else {
+	std::cout << "not requires boolean valuess!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_and() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for and!\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+
+  joy_object* c;
+  if (t1 == BOOL && t2 == BOOL) {
+	auto int_a = get_bool(a);
+	auto int_b = get_bool(b);
+
+	auto res = int_a && int_b;
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, BOOL);
+  }
+  else {
+	std::cout << "or requires boolean valuess or sets!";
+	return nullptr;
+  }
+
+  return c;
+}
+
+joy_object* op_or() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for or!\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+
+  joy_object* c;
+  if (t1 == BOOL && t2 == BOOL) {
+	auto int_a = get_bool(a);
+	auto int_b = get_bool(b);
+
+	auto res = int_a || int_b;
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, BOOL);
+  }
+  else {
+	std::cout << "or requires bools or sets!";
+	return nullptr;
+  }
+
+  return c;
+}
+
+joy_object* op_xor() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for xor!\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c;
+  if (t1 == BOOL && t2 == BOOL) {
+	auto int_a = get_bool(a);
+	auto int_b = get_bool(b);
+
+	auto res = int_a != int_b;
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, BOOL);
+  }
+  else {
+	std::cout << "xor requires bools or sets!";
+	return nullptr;
+  }
   return c;
 }
 
@@ -696,8 +897,8 @@ joy_object* op_gt() {
 	std::cout << "ERROR - need at least two operands for greaterthan!\n";
   }
 
-  auto b = op_peek(0);
-  auto a = op_peek(1);
+  auto a = op_peek(0);
+  auto b = op_peek(1);
 
   // TODO: type checking
   Type t1 = get_type(a);
@@ -838,7 +1039,7 @@ joy_object* op_rolldown() {
   return a;
 }
 
-joy_object* op_rotat() {
+joy_object* op_rotate() {
   if (cur_stack_size() < 3) {
 	std::cout << "ERROR - stack size less than 3!\n";
 	return nullptr;
@@ -864,17 +1065,15 @@ void execute_term(bool is_x = false) {
   if (cur_list->type != LIST)
 	return;
 
-  joy_object* temp_stack[STACK_SIZE/2];
-  auto temp_stack_ptr = STACK_SIZE/2;
-
   auto l = get_list(cur_list);
   for(auto i = 1; i < l.size(); i++) {
 	if (l[i]->type == OP){
 	  l[i]->op();
 	}
-	else
+	else {
 	  //temp_stack[--temp_stack_ptr] = l[i];
 	  op_push(l[i], l[i]->type);
+	}
   }
 
   //  for(auto i = temp_stack_ptr; i < STACK_SIZE/2; i++) {
@@ -945,6 +1144,87 @@ void op_comb_dip() {
   execute_term(false);
   op_push(b, b->type);
 }
+
+// e.g.
+// X == 102
+// X [101 >] [2 /] [3 *] ifte
+// -> 51
+void op_comb_ifte() {
+  if (cur_stack_size() <  4) {
+	std::cout << "ifte expects 4 objects\n";
+	return;
+  }
+
+  // [3 *]
+  auto a = op_peek(0);
+  // [2 /]
+  auto b = op_peek(1);
+  // [101 >] 
+  auto c = op_peek(2);
+  // X
+  auto d = op_peek(3);
+
+  if (a->type != LIST || b->type != LIST || c->type != LIST) {
+	std::cout << "ifte expects three list objects!\n";
+	return;
+  }
+
+  auto l_a = op_pop();
+  auto l_b = op_pop();
+  auto l_c = op_pop();
+  auto d_o = op_pop();
+
+  op_push(d_o, d_o->type);
+  op_push(l_c, l_c->type);
+  op_comb_i();
+
+  auto res1 = op_get_head();
+  if (get_bool(res1) == true) {	
+	op_pop();
+	op_push(d_o, d_o->type);
+	op_push(l_b, l_b->type);
+	op_comb_i();
+	return;
+  }
+
+  op_pop();
+  op_push(d_o, d_o->type);
+  op_push(l_a, l_a->type);
+  op_comb_i();
+  return;
+}
+
+void op_comb_cleave() {
+  if (cur_stack_size() <  3) {
+	std::cout << "cleave expects 3 objects\n";
+	return;
+  }
+
+  // [0 [+] fold] 
+  auto a = op_peek(0);
+  // [size]
+  auto b = op_peek(1);
+  // X
+  auto c = op_peek(2);
+
+  if (a->type != LIST || b->type != LIST) {
+	std::cout << "cleave expects two list objects!\n";
+	return;
+  }
+
+  auto l_a = op_pop();
+  auto l_b = op_pop();
+  auto c_o = op_pop();
+
+  op_push(c_o, c_o->type);
+  op_push(l_b,l_b->type);
+  op_comb_i();
+
+  op_push(c_o, c_o->type);
+  op_push(l_a, l_a->type);
+  op_comb_i();
+}
+
 
 // e.g.
 // [1 2 3] [dup +] map
@@ -1062,10 +1342,10 @@ void setup_builtins() {
   builtins["<"] = (voidFunction)op_lt;
   builtins[">"] = (voidFunction)op_gt;
   //builtins["%"] = (voidFunction)op_mod;
-  //builtins["or"] = (voidFunction)op_gt;
-  //builtins["xor"] = (voidFunction)op_or;
-  //builtins["and"] = (voidFunction)op_or;
-  //builtins["not"] = (voidFunction)op_or;
+  builtins["or"] = (voidFunction)op_or;
+  builtins["xor"] = (voidFunction)op_xor;
+  builtins["and"] = (voidFunction)op_and;
+  builtins["not"] = (voidFunction)op_not;
   //builtins["neg"] = (voidFunction)op_or;
   //builtins["abs"] = (voidFunction)op_or;
   //builtins["acos"] = (voidFunction)op_or;
@@ -1112,6 +1392,8 @@ void setup_builtins() {
   builtins["size"] = (voidFunction)op_size;
   builtins["small"] = (voidFunction)op_small;
   builtins["reverse"] = (voidFunction)op_reverse;
+  builtins["at"] = (voidFunction)op_at;
+  builtins["="] = (voidFunction)op_eq;
 
   //builtins["popd"] = (voidFunction)op_popd;
   //builtins["dupd"] = (voidFunction)op_dupd;
@@ -1124,6 +1406,8 @@ void setup_builtins() {
   builtins["dip"] = (voidFunction)op_comb_dip;
   builtins["map"] = (voidFunction)op_comb_map;
   builtins["fold"] = (voidFunction)op_comb_fold;
+  builtins["cleave"] = (voidFunction)op_comb_cleave;
+  builtins["ifte"] = (voidFunction)op_comb_ifte;
 }
 
 /** PARSER **/
@@ -1134,21 +1418,33 @@ bool peek(std::string::const_iterator i,
   return false;
 }
 
-std::tuple<std::string::const_iterator, joy_object*>
+std::tuple<std::string::const_iterator, joy_object*, bool>
 parse_numeric(std::string::const_iterator i, std::string* input) {
   std::string cur_num;
+  bool is_float = false;
   while(i != input->end()) {
-	if (!std::isdigit(*i)) { // TODO: Floats
+	if (*i == '.')
+	  is_float = true;
+
+	if ((*i != '.') && !std::isdigit(*i)) { // TODO: Floats
 	  break;
 	}
+
 	cur_num += *i;  
 	i++;
   }
 
-  auto as_int = (int64_t) stoi(cur_num);
-  auto o = new joy_object(as_int);
-  //op_push(o, INT);
-  return {i,o};
+  if (!is_float) {
+	auto as_int = (int64_t) stoi(cur_num);
+	auto o = new joy_object(as_int);
+	//op_push(o, INT);
+	return {i,o, is_float};
+  }
+  else {
+	auto as_float = (float) stof(cur_num);
+	auto o = new joy_object(as_float);
+	return {i,o, is_float};
+  }
 }
 
 // unused 
@@ -1285,6 +1581,7 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
   joy_object* head;
   bool is_def;
   bool user_ident;
+  bool is_float;
 
   if (t == LIST)
 	head = new joy_object(LIST);
@@ -1299,7 +1596,7 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 	  break;
 	}
 	if (std::isdigit(*it)) {
-	  std::tie(it, o) = parse_numeric(it, input);
+	  std::tie(it, o, is_float) = parse_numeric(it, input);
 	  cur_list.push_back(o);
 	}
 	else if (*it == '"') {
@@ -1310,9 +1607,9 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 	else if (*it == '['){
 	  //it = std::get<0>(parse_list(++it, &input));
 	  std::tie(it, o) = parse_list(++it, input, LIST);
-	  std::cout << "PARSED_LIST" << std::endl;
+	  //std::cout << "PARSED_LIST" << std::endl;
 	  cur_list.push_back(o);
-	  // ++it; ?
+	  ++it;// ?
 	}
 	else if (*it == '{') {
 	  //it = std::get<0>(parse_set(++it, &input));
@@ -1339,11 +1636,14 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 		cur_list.push_back(o);
 	  }
 	  else {
+		//std::cout << "PARSING IDENT IN LIST\n";
 		std::tie(it, o, is_def, user_ident) = parse_ident(it, input);
 		cur_list.push_back(o);
 	  }
 	}
-	else if (*it == '+' || *it == '*' || *it == '/' || std::isalpha(*it)) {
+	// TODO: more ops here
+	else if (*it == '+' || *it == '*' || *it == '/' || *it == '>' || *it == '<'
+			 || std::isalpha(*it)) {
 	  std::tie(it, o, is_def, user_ident) = parse_ident(it, input); 
 		cur_list.push_back(o);
 	}
@@ -1387,7 +1687,7 @@ void print_data(std::variant<int64_t,
 		std::cout << std::get<int64_t>(data);
 		break;
 	  case 1:
-		std::cout << std::get<float>(data);
+		std::cout << std::fixed << std::setprecision(2) << std::get<float>(data);
 		break;
 	  case 2:
 		{
@@ -1455,12 +1755,16 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
   std::string::const_iterator it = input.begin();
   bool is_def = false;
   bool user_ident = false;
+  bool is_float = false;
   while(it != input.end()){	
 	joy_object* o = nullptr;
 	if (std::isdigit(*it)) {
 	  //it = std::get<std::string::const_iterator>(parse_numeric(it, &input));
-	  std::tie(it, o) = parse_numeric(it, &input);
-	  op_push(o, INT, cur_stack);
+	  std::tie(it, o, is_float) = parse_numeric(it, &input);
+	  if (is_float)
+		op_push(o, FLOAT, cur_stack);
+	  else
+		op_push(o, INT, cur_stack);
 	}
 	else if (*it == '"') {
 	  //it = std::get<0>(parse_string(++it, &input));
@@ -1512,7 +1816,7 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
 		std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true);
 	  }
 	}
-	else if (*it == '+' || *it == '*' || *it == '/'
+	else if (*it == '+' || *it == '*' || *it == '/' || *it == '='
 			 ||*it == '>' || *it == '<' || *it == '-' || std::isalpha(*it)) {
 	  std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true); 
 	  // if that was not a defintion, push it to the stack
