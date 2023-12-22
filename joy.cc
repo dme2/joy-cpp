@@ -19,8 +19,6 @@
  *  [] error checking on parsing 
  *  [?] fix list parsing
  *  [x] char parsing
- *  [] add bool handling to ops
- *  [] add list/set handling to ops
  *  [] some ops and combinaors...
  *     [x] and
  *     [x] or
@@ -30,26 +28,28 @@
  *     [x] first
  *     [x] rest
  *     [x] at
- *     [] ifte
- *     [] step
- *     [] filter
+ *     [x] ifte
+ *     [x] step
+ *     [x] filter
  *     [x] fold
  *     [x] cleave
- *     [] primrec
- *     [] linrec
- *     [] split
- *     [] uncons
+ *     [x] split
+ *     [x] uncons
  *     [x] small 
- *     [] binrec
- *     [] pred
+ *     [x] pred
+ *     [x] succ
  *     [] treerec
  *     [x] size
- *     [] powerlist
  *     [x] swons
  *     [x] x
+ *     [] primrec
+ *     [] powerlist
+ *     [] linrec
+ *     [] binrec
  *     ... and many more
  *  [x] fix type checking (should happen before popping the values off somehow?)
  *  [] add block (DEFINITION, LIBRA) parsing
+ *  [] add file/stdin parsing modes
  *  [] error handling
  *  [] garbage collection ? (joy doesn't really use variables in the same way as most
        langs, so this might not be necessary. we just have to clean the stack out
@@ -302,6 +302,42 @@ joy_object* op_first() {
 	res->type = l_a[1]->type;
 	op_pop();
 	op_push(res, res->type);
+	return res;
+  }
+}
+
+joy_object* op_uncons() {
+  if (cur_stack_size() < 1){
+	std::cout << "ERROR - nothing on stack!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  if (a->type != STR && a->type != LIST) {
+	std::cout << "ERROR - first requires a string or a list!\n";
+	return nullptr;
+  }
+
+  if (a->type == STR) {
+	auto str = a->string_data;
+	auto res = str.substr(0,1);
+	auto res2 = str.substr(1, str.length());
+	auto res_o = new joy_object(res);
+	auto res_o2 = new joy_object(res2);
+	res_o->type = CHAR;
+	op_pop();
+	op_push(res_o, res_o->type);
+	op_push(res_o2, res_o2->type);
+	return res_o;
+  }
+  else{
+	auto l_a = get_list(a);
+	auto res = new joy_object(l_a[1]);
+	auto res2 = new joy_object(std::vector<joy_object*>(l_a.begin()+1, l_a.end()));
+	res->type = l_a[1]->type;
+	op_pop();
+	op_push(res, res->type);
+	op_push(res2, LIST);
 	return res;
   }
 }
@@ -606,6 +642,60 @@ joy_object* op_add() {
   return c;
 }
 
+joy_object* op_pred() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) { // and float?
+	auto int_a = get_int(a);
+	auto res = int_a-1;
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else {
+	std::cout << "pred requires numeric valuess!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_succ() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) { // and float?
+	auto int_a = get_int(a);
+	auto res = int_a+1;
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else {
+	std::cout << "pred requires numeric valuess!";
+	return nullptr;
+  }
+  return c;
+}
+
 joy_object* op_not () {
   if (STACK_SIZE - stack_ptr < 1){
 	std::cout << "ERROR - stack empty!\n";
@@ -846,7 +936,6 @@ joy_object* op_div() {
 	op_pop();
 	op_pop();
 	op_push(c, FLOAT);
- 
   }
 
   if (t1 == FLOAT && t2 == FLOAT) {
@@ -860,6 +949,86 @@ joy_object* op_div() {
 	op_push(c, FLOAT);
   }
 
+  return c;
+}
+
+joy_object* op_null() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "Error - empty stack\n";
+	return nullptr;
+  }
+
+  auto a = op_pop();
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c; 
+  switch(t1)
+	  {
+	  case INT:
+		{
+		  auto i = get_int(a);
+		  if (i == 0) {
+			c = new joy_object(true);
+		  }
+		  else
+			c = new joy_object(false);
+		  break;
+		}
+	  case FLOAT:
+		{
+		  auto f = get_float(a);
+		  if (f == 0.0)
+			c = new joy_object(true);
+		  else
+			c = new joy_object(false);
+		  break;
+		}
+	  case STR:
+		{
+		  auto s = get_string(a);
+		  if (s == "")
+			c = new joy_object(true);
+		  else
+			c = new joy_object(false);
+		  break;
+		}
+	  case LIST:
+		{
+		  auto l = get_list(a);
+		  if (l.size() == 1)
+			c  = new joy_object(true);
+		  else
+			c = new joy_object(false);
+		  break;
+		}
+	  case SET:
+		{
+		  auto s = get_set(a);
+		  if (s.size() == 1)
+			c = new joy_object(true);
+		  else
+			c = new joy_object(false);
+		  break;
+		}
+	  case BOOL:
+		{
+		  auto b = get_bool(a);
+		  if (!b)
+			c = new joy_object(true);
+		  else
+			c = new joy_object(false);
+		  break;
+		}
+	  default:
+		{
+		  std::cout << "UKNOWN ERROR!\n";
+		  return nullptr;
+		}
+	  }
+  
+  op_push(c, c->type);
   return c;
 }
 
@@ -921,7 +1090,6 @@ joy_object* op_gt() {
 }
 
 // TODO:
-//  fix this 
 joy_object* op_cons() {
   if (cur_stack_size() < 2) {
 	std::cout << "ERROR - stack size less than 2!\n";
@@ -996,6 +1164,16 @@ joy_object* op_swap() {
   op_push(a, a->type);
   op_push(b, b->type);
   return a;
+}
+
+joy_object* op_of() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - need at least two operands for of\n";
+	return nullptr;
+  }
+
+  op_swap();
+  return(op_at());
 }
 
 joy_object* op_swons() {
@@ -1117,16 +1295,58 @@ void execute_term_list(joy_object* l, joy_object* p) {
   //}
 }
 
-void op_clear_stack() {
+void op_clear_stack () {
   while (stack_ptr < STACK_SIZE) {
 	op_pop();
   }
 }
 
-void op_comb_i() {
+void op_comb_i () {
   if (op_get_head()->type != LIST)
 	std::cout << "i expects a LIST!\n";
   execute_term();
+}
+
+void op_comb_split () {
+  if (cur_stack_size() < 2) {
+	std::cout << "Error - split expects 2 params\n!";
+	return;
+  }
+
+  // pivot
+  auto a = op_peek(0);
+  // list
+  auto b = op_peek(1);
+
+  if (a->type != INT || b->type != LIST) {
+	std::cout << "type error on params!\n";
+	return;
+  }
+
+  std::vector<joy_object*> res_list1;
+  std::vector<joy_object*> res_list2;
+  auto head1 = new joy_object(LIST);
+  auto head2 = new joy_object(LIST);
+  res_list1.push_back(head1);
+  res_list2.push_back(head2);
+
+  auto pivot = get_int(a);
+  auto l_b = get_list(b);
+
+  for (int i = 1; i < l_b.size(); i++) {
+	if (i <= pivot) {
+	  res_list1.push_back(l_b[i]);
+	}
+	else
+	  res_list2.push_back(l_b[i]);
+  } 
+
+  op_pop();
+  op_pop();
+  op_push(new joy_object(res_list1), LIST);
+  op_push(new joy_object(res_list2), LIST);
+  return;
+
 }
 
 void op_comb_x() {
@@ -1191,6 +1411,77 @@ void op_comb_ifte() {
   op_push(d_o, d_o->type);
   op_push(l_a, l_a->type);
   op_comb_i();
+  return;
+}
+
+// TODO: strings? 
+void op_comb_step() {
+  if (cur_stack_size() <  2) {
+	std::cout << "ifte expects 2 objects\n";
+	return;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  if (a->type != LIST || b->type != LIST) {
+	std::cout << "ifte expects two list objects!\n";
+	return;
+  }
+
+  auto l_a = op_pop();
+  auto l_b = get_list(op_pop());
+
+  for(int i = 1; i < l_b.size(); i++) {
+	op_push(l_b[i], l_b[i]->type);
+	op_push(l_a, l_a->type);
+	op_comb_i();
+  }
+
+  return;
+}
+
+// TODO: Strings
+void op_comb_filter() {
+  if (cur_stack_size() <  2) {
+	std::cout << "filter expects 2 objects\n";
+	return;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  if (a->type != LIST || (b->type != STR && b->type != LIST)) { 
+	std::cout << "filter expects two list objects!\n";
+	return;
+  }
+
+  // TODO: need some advanced type checking here for
+  // the filtering operand. it should resolve to a bool type
+  auto l_a = op_pop();
+  auto temp_b = op_pop();
+
+  if (temp_b->type == LIST) {
+	std::vector<joy_object*> res_list;
+	auto head = new joy_object(LIST);
+	res_list.push_back(head);
+	auto l_b = get_list(temp_b);
+	for(int i = 1; i < l_b.size(); i++) {
+	  op_push(l_b[i], l_b[i]->type);
+	  op_push(l_a, l_a->type);
+	  op_comb_i();
+	  auto res = op_pop();
+	  if (res->type != BOOL) {
+		std::cout << "Type error: filter operand not resolving to a bool!\n";
+		return;
+	  }
+	  if (get_bool(res) == true) {
+		res_list.push_back(l_b[i]);
+	  }
+	}
+	auto res_o = new joy_object(res_list);
+	op_push(res_o, res_o->type);
+  }
   return;
 }
 
@@ -1338,6 +1629,7 @@ void setup_builtins() {
   builtins["+"] = (voidFunction)op_add;
   builtins["*"] = (voidFunction)op_mul;
   builtins["/"] = (voidFunction)op_div;
+  //builtins["rem"] = (voidFunction)op_rem;
   builtins["-"] = (voidFunction)op_sub;
   builtins["<"] = (voidFunction)op_lt;
   builtins[">"] = (voidFunction)op_gt;
@@ -1370,11 +1662,23 @@ void setup_builtins() {
   //builtins["tanh"] = (voidFunction)op_or;
   //builtins["trunc"] = (voidFunction)op_or;
   //builtins["srand"] = (voidFunction)op_or;
-  //builtins["pred"] = (voidFunction)op_or;
-  //builtins["succ"] = (voidFunction)op_or;
+  builtins["pred"] = (voidFunction)op_pred;
+  builtins["succ"] = (voidFunction)op_succ;
   //builtins["max"] = (voidFunction)op_or;
   //builtins["min"] = (voidFunction)op_or;
+  //builtins["maxint"] = (voidFunction)op_or;
+  //builtins["rand"] = (voidFunction)op_rand;
+
   /** files/strings etc... **/
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
+  //builtins["sign"] = (voidFunction)op_rand;
 
 
   /** stack ops**/
@@ -1388,17 +1692,48 @@ void setup_builtins() {
   builtins["swons"] = (voidFunction)op_swons;
   builtins["rollup"] = (voidFunction)op_rollup;
   builtins["rolldown"] = (voidFunction)op_rolldown;
-  builtins["rotate"] = (voidFunction)op_rolldown;
+  builtins["rotate"] = (voidFunction)op_rotate;
   builtins["size"] = (voidFunction)op_size;
   builtins["small"] = (voidFunction)op_small;
   builtins["reverse"] = (voidFunction)op_reverse;
   builtins["at"] = (voidFunction)op_at;
+  builtins["of"] = (voidFunction)op_of;
   builtins["="] = (voidFunction)op_eq;
-
+  builtins["null"] = (voidFunction)op_null;
+  builtins["uncons"] = (voidFunction)op_uncons;
+  //builtins["ord"] = (voidFunction)op_ord;
+  //builtins["chr"] = (voidFunction)op_chr;
+  //builtins["setsize"] = (voidFunction)op_setsize;
+  //builtins["stack"] = (voidFunction)op_setsize;
+  //builtins["id"] = (voidFunction)op_id;
   //builtins["popd"] = (voidFunction)op_popd;
   //builtins["dupd"] = (voidFunction)op_dupd;
   //builtins["swapd"] = (voidFunction)op_swapd;
+  //builtins["rotated"] = (voidFunction)op_swapd;
+  //builtins["rollupd"] = (voidFunction)op_swapd;
+  //builtins["rolldownd"] = (voidFunction)op_swapd;
   //builtins["choice"] = (voidFunction)op_choice;
+  //builtins["compare"] = (voidFunction)op_compare;
+  //builtins["opcase"] = (voidFunction)op_compare;
+  //builtins["case"] = (voidFunction)op_compare;
+  //builtins["drop"] = (voidFunction)op_compare;
+  //builtins["take"] = (voidFunction)op_compare;
+  //builtins["enconcat"] = (voidFunction)op_compare;
+  //builtins["name"] = (voidFunction)op_compare;
+  //builtins["intern"] = (voidFunction)op_compare;
+  //builtins["body"] = (voidFunction)op_compare;
+  //builtins["has"] = (voidFunction)op_compare;
+  //builtins["in"] = (voidFunction)op_compare;
+  //builtins["integer"] = (voidFunction)op_compare;
+  //builtins["char"] = (voidFunction)op_compare;
+  //builtins["logical"] = (voidFunction)op_compare;
+  //builtins["set"] = (voidFunction)op_compare;
+  //builtins["string"] = (voidFunction)op_compare;
+  //builtins["list"] = (voidFunction)op_compare;
+  //builtins["leaf"] = (voidFunction)op_compare;
+  //builtins["user"] = (voidFunction)op_compare;
+  //builtins["float"] = (voidFunction)op_compare;
+  //builtins["file"] = (voidFunction)op_compare;
 
   /** combinators **/
   builtins["i"] = (voidFunction)op_comb_i;
@@ -1408,6 +1743,53 @@ void setup_builtins() {
   builtins["fold"] = (voidFunction)op_comb_fold;
   builtins["cleave"] = (voidFunction)op_comb_cleave;
   builtins["ifte"] = (voidFunction)op_comb_ifte;
+  builtins["step"] = (voidFunction)op_comb_step;
+  builtins["filter"] = (voidFunction)op_comb_filter;
+  builtins["split"] = (voidFunction)op_comb_split;
+
+  //builtins["app1"] = (voidFunction)op_comb_split;
+  //builtins["app11"] = (voidFunction)op_comb_split;
+  //builtins["app12"] = (voidFunction)op_comb_split;
+  //builtins["construct"] = (voidFunction)op_comb_split;
+  //builtins["nullary"] = (voidFunction)op_comb_split;
+  //builtins["unary"] = (voidFunction)op_comb_split;
+  //builtins["unary2"] = (voidFunction)op_comb_split;
+  //builtins["unary2"] = (voidFunction)op_comb_split;
+  //builtins["unary3"] = (voidFunction)op_comb_split;
+  //builtins["unary4"] = (voidFunction)op_comb_split;
+  //builtins["binary"] = (voidFunction)op_comb_split;
+  //builtins["ternary"] = (voidFunction)op_comb_split;
+  //builtins["branch"] = (voidFunction)op_comb_split;
+  //builtins["ifinteger"] = (voidFunction)op_comb_split;
+  //builtins["ifchar"] = (voidFunction)op_comb_split;
+  //builtins["iflogical"] = (voidFunction)op_comb_split;
+  //builtins["ifset"] = (voidFunction)op_comb_split;
+  //builtins["ifstring"] = (voidFunction)op_comb_split;
+  //builtins["iflist"] = (voidFunction)op_comb_split;
+  //builtins["iffloat"] = (voidFunction)op_comb_split;
+  //builtins["iffile"] = (voidFunction)op_comb_split;
+  //builtins["cond"] = (voidFunction)op_comb_split;
+  //builtins["while"] = (voidFunction)op_comb_split;
+  //builtins["linerec"] = (voidFunction)op_comb_split;
+  //builtins["tailrec"] = (voidFunction)op_comb_split;
+  //builtins["binrec"] = (voidFunction)op_comb_split;
+  //builtins["genrec"] = (voidFunction)op_comb_split;
+  //builtins["condnestrec"] = (voidFunction)op_comb_split;
+  //builtins["condlinerec"] = (voidFunction)op_comb_split;
+  //builtins["times"] = (voidFunction)op_comb_split;
+  //builtins["infra"] = (voidFunction)op_comb_split;
+  //builtins["primerec"] = (voidFunction)op_comb_split;
+  //builtins["some"] = (voidFunction)op_comb_split;
+  //builtins["all"] = (voidFunction)op_comb_split;
+  //builtins["treestep"] = (voidFunction)op_comb_split;
+  //builtins["treerec"] = (voidFunction)op_comb_split;
+  //builtins["treegenrec"] = (voidFunction)op_comb_split;
+
+  /** misc **/
+  //builtins["help"] = (voidFunction)op_comb_split;
+  //builtins["manual"] = (voidFunction)op_comb_split;
+  //builtins["include"] = (voidFunction)op_comb_split;
+  //builtins["quit"] = (voidFunction)op_comb_split;
 }
 
 /** PARSER **/
@@ -1643,7 +2025,7 @@ parse_list(std::string::const_iterator it, std::string* input, Type t) {
 	}
 	// TODO: more ops here
 	else if (*it == '+' || *it == '*' || *it == '/' || *it == '>' || *it == '<'
-			 || std::isalpha(*it)) {
+			 || *it == '=' || *it == '-' || std::isalpha(*it)) {
 	  std::tie(it, o, is_def, user_ident) = parse_ident(it, input); 
 		cur_list.push_back(o);
 	}
