@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -691,9 +692,914 @@ joy_object* op_succ() {
 	op_push(c, INT);
   }
   else {
+	std::cout << "succ requires numeric valuess!";
+	return nullptr;
+  }
+  return c;
+}
+
+
+joy_object* op_max() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(1);
+  auto b = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c;
+  if (t1 == INT && t2 == INT) { // and float?
+	auto int_a = get_int(a);
+	auto int_b = get_int(b);
+	auto res = std::max(int_a, int_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT && t2 == FLOAT) {
+	auto float_a = get_float(a);
+	auto float_b = get_float(b);
+	auto res = std::max(float_a, float_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "max requires numeric valuess!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_min() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(1);
+  auto b = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c;
+  if (t1 == INT && t2 == INT) { // and float?
+	auto int_a = get_int(a);
+	auto int_b = get_int(b);
+	auto res = std::min(int_a, int_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT && t2 == FLOAT) {
+	auto float_a = get_float(a);
+	auto float_b = get_float(b);
+	auto res = std::min(float_a, float_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
 	std::cout << "pred requires numeric valuess!";
 	return nullptr;
   }
+  return c;
+}
+
+joy_object* op_neg() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	auto int_a = get_int(a);
+	auto res = -int_a;
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = -float_a;
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "neg requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_abs() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	auto int_a = get_int(a);
+	auto res = std::abs(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::abs(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "abs requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_acos() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::acos(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::acos(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "acos requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_asin() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::asin(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::asin(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "asin requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_atan() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::atan(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::atan(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "atan requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_atan2() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(1);
+  auto b = op_peek(0);
+  
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c;
+  if (t1 == INT && t2 == INT) {
+	int int_a = get_int(a);
+	int int_b = get_int(b);
+	float res = std::atan2(int_a, int_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT && t2 == FLOAT) {
+	auto float_a = get_float(a);
+	auto float_b = get_float(b);
+	auto res = std::atan2(float_a, float_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "atan2 requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_ceil() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::ceil(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::ceil(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "ceil requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_cos() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::cos(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::cos(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "cos requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_cosh() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::cosh(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::cosh(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "cosh requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_exp() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::exp(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::exp(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "exp requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_floor() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::floor(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::floor(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "floor requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+
+joy_object* op_ldexp() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(1);
+  auto b = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c;
+  if (t1 == INT && t2 == INT) {
+	int int_a = get_int(a);
+	int int_b = get_int(b);
+	float res = std::ldexp(int_a, int_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT && t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto float_b = get_float(b);
+	auto res = std::ldexp(float_a, float_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "ldexp requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_log() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::log(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::log(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "log requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_log10() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::log10(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::log10(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "log10 requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_pow() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(1);
+  auto b = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c;
+  if (t1 == INT && t2 == INT) {
+	int int_a = get_int(a);
+	int int_b = get_int(b);
+	int64_t res = std::pow(int_a, int_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto float_b = get_float(b);
+	auto res = std::pow(float_a, float_b);
+	c = new joy_object(res);
+
+	op_pop();
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "pow requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_sin() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::sin(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::sin(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "sin requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_sqrt() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::sqrt(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::sqrt(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "sqrt requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_sinh() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::sinh(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::sinh(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "sinh requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_tan() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::tan(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::tan(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "tan requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+
+joy_object* op_tanh() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::tanh(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::tanh(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "tanh requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_trunc() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	float res = std::trunc(int_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, INT);
+  }
+  else if (t1 == FLOAT) {
+	auto float_a = get_float(a);
+	auto res = std::trunc(float_a);
+	c = new joy_object(res);
+
+	op_pop();
+	op_push(c, FLOAT);
+
+  }
+  else {
+	std::cout << "trunc requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_srand() {
+  if (STACK_SIZE - stack_ptr < 1){
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+
+  joy_object* c;
+  if (t1 == INT) {
+	int int_a = get_int(a);
+	std::srand(int_a);
+	//c = new joy_object(res);
+
+	op_pop();
+	//op_push(c, INT);
+  }
+  else {
+	std::cout << "trunc requires numeric values!";
+	return nullptr;
+  }
+  return c;
+}
+
+joy_object* op_rand() {
+  //if (STACK_SIZE - stack_ptr < 1){
+  //std::cout << "ERROR - stack empty!\n";
+  //return nullptr;
+  //}
+
+  //auto a = op_peek(0);
+
+  // TODO: type checking
+  //Type t1 = get_type(a);
+
+  joy_object* c;
+  std::rand();
   return c;
 }
 
@@ -1622,7 +2528,6 @@ void op_comb_fold() {
   // op_push(o, o->type);
 }
 
-/** SETUP BUILTINS **/
 //  std::unordered_map<std::string, op_ptr> builtins;
 void setup_builtins() {
   //using op_ptr = joy_object (*)();
@@ -1639,36 +2544,36 @@ void setup_builtins() {
   builtins["xor"] = (voidFunction)op_xor;
   builtins["and"] = (voidFunction)op_and;
   builtins["not"] = (voidFunction)op_not;
-  //builtins["neg"] = (voidFunction)op_or;
-  //builtins["abs"] = (voidFunction)op_or;
-  //builtins["acos"] = (voidFunction)op_or;
-  //builtins["asin"] = (voidFunction)op_or;
-  //builtins["atan"] = (voidFunction)op_or;
-  //builtins["atan2"] = (voidFunction)op_or;
-  //builtins["ceil"] = (voidFunction)op_or;
-  //builtins["cos"] = (voidFunction)op_or;
-  //builtins["cosh"] = (voidFunction)op_or;
-  //builtins["exp"] = (voidFunction)op_or;
-  //builtins["floor"] = (voidFunction)op_or;
-  //builtins["frexp"] = (voidFunction)op_or;
-  //builtins["ldexp"] = (voidFunction)op_or;
-  //builtins["log"] = (voidFunction)op_or;
-  //builtins["log10"] = (voidFunction)op_or;
-  //builtins["modf"] = (voidFunction)op_or;
-  //builtins["pow"] = (voidFunction)op_or;
-  //builtins["sin"] = (voidFunction)op_or;
-  //builtins["sqrt"] = (voidFunction)op_or;
-  //builtins["sinh"] = (voidFunction)op_or;
-  //builtins["tan"] = (voidFunction)op_or;
-  //builtins["tanh"] = (voidFunction)op_or;
-  //builtins["trunc"] = (voidFunction)op_or;
-  //builtins["srand"] = (voidFunction)op_or;
+  builtins["neg"] = (voidFunction)op_neg;
+  builtins["abs"] = (voidFunction)op_abs;
+  builtins["acos"] = (voidFunction)op_acos;
+  builtins["asin"] = (voidFunction)op_asin;
+  builtins["atan"] = (voidFunction)op_atan;
+  builtins["atan2"] = (voidFunction)op_atan2;
+  builtins["ceil"] = (voidFunction)op_ceil;
+  builtins["cos"] = (voidFunction)op_cos;
+  builtins["cosh"] = (voidFunction)op_cosh;
+  builtins["exp"] = (voidFunction)op_exp;
+  builtins["floor"] = (voidFunction)op_floor;
+  //builtins["frexp"] = (voidFunction)op_frexp;
+  builtins["ldexp"] = (voidFunction)op_ldexp;
+  builtins["log"] = (voidFunction)op_log;
+  builtins["log10"] = (voidFunction)op_log10;
+  //builtins["modf"] = (voidFunction)op_modf;
+  builtins["pow"] = (voidFunction)op_pow;
+  builtins["sin"] = (voidFunction)op_sin;
+  builtins["sqrt"] = (voidFunction)op_sqrt;
+  builtins["sinh"] = (voidFunction)op_sinh;
+  builtins["tan"] = (voidFunction)op_tan;
+  builtins["tanh"] = (voidFunction)op_tanh;
+  builtins["trunc"] = (voidFunction)op_trunc;
+  builtins["srand"] = (voidFunction)op_srand;
   builtins["pred"] = (voidFunction)op_pred;
   builtins["succ"] = (voidFunction)op_succ;
-  //builtins["max"] = (voidFunction)op_or;
-  //builtins["min"] = (voidFunction)op_or;
+  builtins["max"] = (voidFunction)op_max;
+  builtins["min"] = (voidFunction)op_min;
   //builtins["maxint"] = (voidFunction)op_or;
-  //builtins["rand"] = (voidFunction)op_rand;
+  builtins["rand"] = (voidFunction)op_rand;
 
   /** files/strings etc... **/
   //builtins["sign"] = (voidFunction)op_rand;
@@ -1807,6 +2712,16 @@ bool peek(std::string::const_iterator i,
   return false;
 }
 
+
+
+std::string::const_iterator
+eat_space(std::string* input, std::string::const_iterator i) {
+  while (i != input->end() && (std::isspace(*i))) {
+	i++;
+  }
+  return i;
+}
+
 std::tuple<std::string::const_iterator, joy_object*, bool>
 parse_numeric(std::string::const_iterator i, std::string* input) {
   std::string cur_num;
@@ -1815,7 +2730,7 @@ parse_numeric(std::string::const_iterator i, std::string* input) {
 	if (*i == '.')
 	  is_float = true;
 
-	if ((*i != '.') && !std::isdigit(*i)) { // TODO: Floats
+	if ((*i != '.') && !std::isdigit(*i)) { 
 	  break;
 	}
 
@@ -1941,9 +2856,10 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
   // otherwise it points to a joy_object, which would be
   // a user defined operation or value 
   if (i != input->end()) {
-	if (peek(i++, input, "==")) {
+	i = eat_space(input, i);
+	if (peek(i, input, "==")) {
 	  is_def = true;
-	  ++i;
+	  i+=2;
 	  std::tie(i,o) = parse_definition(++i, input);
 	  op_store(o, cur_ident);
 	}
