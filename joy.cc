@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -201,7 +202,7 @@ joy_object* op_store(joy_object* obj, std::string name) {
 
 joy_object* op_retrieve(std::string name) {
   int64_t found;
-  if (found = heap.find(name) == heap.end())
+  if ((found = heap.find(name) == heap.end()))
 	return nullptr;
 
   return heap[name];
@@ -1795,6 +1796,12 @@ void setup_builtins() {
 /** PARSER **/
 bool peek(std::string::const_iterator i,
 				 std::string *input, std::string match) {
+  // TODO: fix this
+  while(i != input->end()){
+	if (!std::isspace(*i))
+	  break;
+	i++;
+  }
   if (input->compare(i - input->begin(), match.length(), match) == 0)
 	return true;
   return false;
@@ -1934,7 +1941,7 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
   // otherwise it points to a joy_object, which would be
   // a user defined operation or value 
   if (i != input->end()) {
-	if (peek(++i, input, "==")) {
+	if (peek(i++, input, "==")) {
 	  is_def = true;
 	  ++i;
 	  std::tie(i,o) = parse_definition(++i, input);
@@ -2235,8 +2242,25 @@ void run_interpreter() {
   return;
 }
 
-int main() {
+void interpret_file(std::string file_path) {
+  std::ifstream in_file(file_path);
+  std::string line;
+
+  if (in_file.is_open()) {
+	while (std::getline(in_file, line, ';')) {
+	  // std::cout << line << std::endl;
+	  parse_line(line);
+	}
+  }
+  
+}
+
+int main(int argc, char *argv[]) {
   printf("RUNNING JOYVM\n");
   setup_builtins();
+  if (argc > 1) {
+	std::string in = (std::string) argv[1];
+	interpret_file(in);
+  }
   run_interpreter();
 }
