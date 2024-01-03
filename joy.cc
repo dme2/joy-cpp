@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -781,6 +782,12 @@ joy_object* op_min() {
 	return nullptr;
   }
   return c;
+}
+
+joy_object* op_maxint() {
+  auto maxint = new joy_object((int64_t)INT_MAX);
+  op_push(maxint, INT);
+  return maxint;
 }
 
 joy_object* op_neg() {
@@ -1859,6 +1866,38 @@ joy_object* op_div() {
   return c;
 }
 
+joy_object* op_rem() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for divison!\n";
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  // possible valid combos:
+  // int+int, float+int, float+float
+
+  joy_object* c = new joy_object();
+
+  if (t1 == INT && t2 == INT) {
+	auto int_a = get_int(a);
+	auto int_b = get_int(b);
+
+	auto res = int_a % int_b;
+	c->data = (void*) res;
+	op_pop();
+	op_pop();
+	op_push(c, INT);
+	return c;
+  }
+  else
+	return nullptr;
+}
+
 joy_object* op_null() {
   if (STACK_SIZE - stack_ptr < 1){
 	std::cout << "Error - empty stack\n";
@@ -1994,6 +2033,99 @@ joy_object* op_gt() {
   op_pop();
   op_push(c, c->type);
   return c;
+}
+
+joy_object* op_gte() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for greaterthan!\n";
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  if ((t1 != INT && t1 != FLOAT) || (t2 != INT && t2 != FLOAT))
+	return nullptr;
+
+  joy_object* c = new joy_object(BOOL);
+
+  if (get_data(b) >= get_data(a))
+	c->data = (void*)true;
+  else
+	c->data = (void*)false;
+
+  op_pop();
+  op_pop();
+  op_push(c, c->type);
+  return c;
+}
+
+joy_object* op_lte() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for greaterthan!\n";
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  if ((t1 != INT && t1 != FLOAT) || (t2 != INT && t2 != FLOAT))
+	return nullptr;
+
+  joy_object* c = new joy_object(BOOL);
+
+  if (get_data(b) <= get_data(a))
+	c->data = (void*)true;
+  else
+	c->data = (void*)false;
+
+  op_pop();
+  op_pop();
+  op_push(c, c->type);
+  return c;
+}
+
+
+joy_object* op_ne() {
+  if (STACK_SIZE - stack_ptr < 2){
+	std::cout << "ERROR - need at least two operands for greaterthan!\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+
+  // TODO: type checking
+  Type t1 = get_type(a);
+  Type t2 = get_type(b);
+
+  joy_object* c = new joy_object(BOOL);
+
+  if ((t1 == INT && t2 == INT) ||
+	  (t1 == FLOAT && t2 == FLOAT) ||
+	  (t1 == STR && t2 == STR) ||
+	  (t1 == CHAR && t2 == CHAR)||
+	  (t1 == BOOL && t2 == BOOL)) {
+	  
+
+	if (get_data(b) != get_data(a))
+	  c->data = (void*)true;
+	else
+	  c->data = (void*)false;
+
+	op_pop();
+	op_pop();
+	op_push(c, c->type);
+	return c;
+  }
+  else
+	return nullptr;
 }
 
 // TODO:
@@ -2166,7 +2298,6 @@ void execute_term(bool is_x = false) {
   //}
 }
 
-
 // for maps/filters etc..
 void execute_term_list(joy_object* l, joy_object* p) {
   if (cur_stack_size() < 2) {
@@ -2202,11 +2333,92 @@ void execute_term_list(joy_object* l, joy_object* p) {
   //}
 }
 
+joy_object* op_id () {
+  return nullptr;
+}
+
 void op_clear_stack () {
   while (stack_ptr < STACK_SIZE) {
 	op_pop();
   }
 }
+
+joy_object* op_unstack() {
+  if (cur_stack_size() < 1 || op_get_head()->type != LIST) {
+	std::cout << "unstack expects a list!\n";
+	return nullptr;
+  }
+  auto a = op_pop();
+  op_clear_stack();
+
+  auto l_a = get_list(a);
+
+  for (int i = l_a.size()-1; i > 0; i--) {
+	op_push(l_a[i], l_a[i]->type);
+  }
+
+  return nullptr;
+  
+}
+
+joy_object* op_ord() {
+  if (cur_stack_size() < 1 || op_get_head()->type != CHAR) {
+	std::cout << "unstack expects a char!\n";
+	return nullptr;
+  }
+  auto a = op_pop();
+
+  auto c =  get_char(a);
+  auto res = (int) c[0];
+  auto res_o = new joy_object((int64_t) res);
+  op_push(res_o, INT);
+  
+  return res_o;
+}
+
+joy_object* op_chr() {
+  if (cur_stack_size() < 1 || op_get_head()->type != INT) {
+	std::cout << "unstack expects a char!\n";
+	return nullptr;
+  }
+  auto a = op_pop();
+
+  auto c =  get_int(a);
+  if (c < 0 || c > 127) {
+	std::cout << "invalid int for conversion to char\n";
+	return nullptr;
+  }
+  char res = '0' + c;
+  auto res_str = "";
+  res_str+=res;
+  auto res_o = new joy_object(res_str, CHAR);
+
+  op_push(res_o, CHAR);
+  
+  return res_o;
+}
+
+joy_object* op_stack() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - stack empty!\n";
+	return nullptr;
+  }
+  auto len = cur_stack_size();
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+ 
+  for (int i = 0; i < len; i++) {
+	auto x = op_peek(i);
+	res_list.push_back(x);
+  }
+
+  auto res_o = new joy_object(res_list);
+  op_push(res_o, LIST);
+  
+  return res_o;
+}
+
 
 void op_comb_i () {
   if (op_get_head()->type != LIST)
@@ -2256,6 +2468,131 @@ void op_comb_split () {
 
 }
 
+// e.g.
+// 2 [2 3 +] app1
+// -> 5
+//
+// 2 [1 +] app1
+// -> 3 (I think?)
+//
+// 2 3 [1 2 3] app1
+// -> 2 1 2 3
+void op_comb_app1() {
+  if (cur_stack_size() < 2) {
+	std::cout << "Error - app1 expects 2 params\n!";
+	return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // X
+  auto b = op_peek(1);
+  int b_pos = stack_ptr + 1;
+
+  if (a->type != LIST) {
+	std::cout << "type error on params!\n";
+	return;
+  }
+
+  op_comb_i();
+
+  if (stack_ptr == b_pos) // b was used in the execution
+	return;
+  else {
+	stck[b_pos] = nullptr;
+  }
+
+  return;
+}
+
+// e.g.
+// 1 2 [1 +] -> 3
+// 1 2 [1 2 +] -> 3
+void op_comb_app11() {
+  if (cur_stack_size() < 3) {
+	std::cout << "Error - app11 expects 3 params\n!";
+	return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // Y
+  auto b = op_peek(1);
+  // X
+  auto c = op_peek(2);
+
+  int b_pos = stack_ptr + 1;
+  int c_pos = stack_ptr + 2;
+
+  if (a->type != LIST) {
+	std::cout << "type error on params!\n";
+	return;
+  }
+
+  op_comb_i();
+  
+  // TODO: fix this...
+  if (stack_ptr == b_pos) {
+	stck[c_pos] = nullptr;
+  }
+  else if (stack_ptr == c_pos) {
+	return;
+  }
+  else {
+	stck[b_pos] = nullptr;
+	stck[c_pos] = nullptr;
+  }
+  return;
+}
+
+// e.g.
+// X Y1 Y2 [P1] app12 -> R1 R2
+// Y1 produces R1 and R2 produces R2
+// X, Y1, Y2 are then dropped from the stack
+void op_comb_app12() {
+  if (cur_stack_size() < 4) {
+	std::cout << "Error - app12 expects 4 params\n!";
+	return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // Y1 
+  auto b = op_peek(1);
+  // Y2 
+  auto c = op_peek(2);
+  // X 
+  auto d = op_peek(3);
+
+  int b_pos = stack_ptr + 1;
+  int c_pos = stack_ptr + 2;
+  int d_pos = stack_ptr + 3;
+
+  if (a->type != LIST) {
+	std::cout << "type error on params!\n";
+	return;
+  }
+
+  // POP everything;
+  auto p1 = op_pop();
+  auto y2 = op_pop();
+  auto y1 = op_pop();
+  auto  x = op_pop();
+
+  // TODO:
+  // handle x?
+  op_push(y1, y1->type);
+  op_push(p1, p1->type);
+  op_comb_i();
+
+  op_push(y2, y2->type);
+  op_push(p1, p1->type);
+  op_comb_i();
+
+  return;
+}
+
+
 void op_comb_x() {
   if (op_get_head()->type != LIST)
 	std::cout << "x expects a LIST!\n";
@@ -2270,6 +2607,269 @@ void op_comb_dip() {
   op_push(a, a->type);
   execute_term(false);
   op_push(b, b->type);
+}
+
+joy_object* op_popd() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - popd requires 2 params!\n";
+	return nullptr;
+  }
+  std::vector<joy_object*> l1;
+  auto head = new joy_object(LIST);
+  l1.push_back(head);
+	
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_pop;
+  l1.push_back(op_obj);
+  auto obj = new joy_object(l1);
+  op_push(obj, LIST);
+  op_comb_dip();
+  return nullptr;
+}
+
+joy_object* op_dupd() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - dupd requires 2 params!\n";
+	return nullptr;
+  }
+  std::vector<joy_object*> l1;
+  auto head = new joy_object(LIST);
+  l1.push_back(head);
+	
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_dup;
+  l1.push_back(op_obj);
+  auto obj = new joy_object(l1);
+  op_push(obj, LIST);
+  op_comb_dip();
+  return nullptr;
+}
+
+joy_object* op_swapd() {
+  if (cur_stack_size() < 3) {
+	std::cout << "ERROR - error swapd requires 3 params!\n";
+	return nullptr;
+  }
+  std::vector<joy_object*> l1;
+  auto head = new joy_object(LIST);
+  l1.push_back(head);
+	
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_swapd;
+  l1.push_back(op_obj);
+  auto obj = new joy_object(l1);
+  op_push(obj, LIST);
+  op_comb_dip();
+  return nullptr;
+}
+
+joy_object* op_rollupd() {
+  if (cur_stack_size() < 4) {
+	std::cout << "ERROR - rollupd requires 4 params!\n";
+	return nullptr;
+  }
+  std::vector<joy_object*> l1;
+  auto head = new joy_object(LIST);
+  l1.push_back(head);
+	
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_rollupd;
+  l1.push_back(op_obj);
+  auto obj = new joy_object(l1);
+  op_push(obj, LIST);
+  op_comb_dip();
+  return nullptr;
+}
+
+joy_object* op_rolldownd() {
+  if (cur_stack_size() < 4) {
+	std::cout << "ERROR - rolldown requires 4 params!\n";
+	return nullptr;
+  }
+  std::vector<joy_object*> l1;
+  auto head = new joy_object(LIST);
+  l1.push_back(head);
+	
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_rolldownd;
+  l1.push_back(op_obj);
+  auto obj = new joy_object(l1);
+  op_push(obj, LIST);
+  op_comb_dip();
+  return nullptr;
+}
+
+joy_object* op_rotated() {
+  if (cur_stack_size() < 4) {
+	std::cout << "ERROR - rotated requires 4 params!\n";
+	return nullptr;
+  }
+  std::vector<joy_object*> l1;
+  auto head = new joy_object(LIST);
+  l1.push_back(head);
+	
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_rotated;
+  l1.push_back(op_obj);
+  auto obj = new joy_object(l1);
+  op_push(obj, LIST);
+  op_comb_dip();
+  return nullptr;
+}
+
+joy_object* op_choice() {
+  if (cur_stack_size() < 3) {
+	std::cout << "ERROR - choice requires 3 params\n";
+	return nullptr;
+  }
+
+  auto t = op_peek(2);
+  if (t->type != BOOL) {
+	std::cout << "ERROR - need bool type!\n";
+	return nullptr;
+  }
+
+  auto a = op_pop();
+  auto b = op_pop();
+
+  t = op_pop();
+  if (get_bool(t) == true) {
+	op_push(b, b->type);
+  }
+  else
+	op_push(a, a->type);
+  return nullptr;
+}
+
+joy_object* op_compare() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - compare requires 2 params\n";
+	return nullptr;
+  }
+
+  auto a = op_pop();
+  auto b = op_pop();
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  auto neg1 = new joy_object((int64_t)-1);
+  auto zero = new joy_object((int64_t)0);
+  auto pos1 = new joy_object((int64_t)1);
+
+  if ((t_a == INT && t_b == INT) || (t_a == FLOAT && t_b == FLOAT)) {
+	auto x = t_a == INT ? get_int(a) : get_float(a);
+	auto y = t_b == INT ? get_int(b) : get_float(b);
+	if (y <= x) {
+	  op_push(neg1, INT);
+	  return neg1;
+	}
+	else if (y == x) {
+	  op_push(zero, INT);
+	  return zero;
+	}
+	else if (y >= x) {
+	  op_push(pos1, INT);
+	  return pos1;
+	}
+  }
+  else {
+	std::cout << "type error!\n";
+  }
+
+  return nullptr;
+}
+
+
+joy_object* op_opcase() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - opcase requires 2 params\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST) {
+	std::cout << "opcase expects a list param!\n";
+  }
+
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+	
+  auto l_a = get_list(a);
+  for (int i = 0; i < l_a.size(); i++) {
+	if (l_a[i]->type != LIST) {
+	  std::cout << "opcase requires a list of lists!\n";
+	  return nullptr;
+	}
+	if (get_list(l_a[i]).size() > 2) {
+	  auto temp_list = get_list(l_a[i]);
+	  if (temp_list[1]->type == t_b) {
+		for (int j = 2; j < temp_list.size(); j++) {
+		  res_list.push_back(temp_list[j]);
+		}
+		op_pop();
+		op_pop();
+		auto res_obj = new joy_object(res_list);
+		op_push(res_obj, LIST);
+		return res_obj;
+	  }
+	}
+  }
+
+  return nullptr;
+}
+
+joy_object* op_case() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - opcase requires 2 params\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST) {
+	std::cout << "opcase expects a list param!\n";
+  }
+
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+	
+  auto l_a = get_list(a);
+  for (int i = 0; i < l_a.size(); i++) {
+	if (l_a[i]->type != LIST) {
+	  std::cout << "opcase requires a list of lists!\n";
+	  return nullptr;
+	}
+	if (get_list(l_a[i]).size() > 2) {
+	  auto temp_list = get_list(l_a[i]);
+	  if (get_data(temp_list[1]) == get_data(b)) {
+		for (int j = 2; j < temp_list.size(); j++) {
+		  res_list.push_back(temp_list[j]);
+		}
+		op_pop();
+		op_pop();
+		auto res_obj = new joy_object(res_list);
+		op_push(res_obj, LIST);
+		op_comb_i();
+		return res_obj;
+	  }
+	}
+  }
+
+  return nullptr;
+}
+
+// TODO: is this correct?
+void op_comb_nullary() {
+  op_comb_i();
 }
 
 // e.g.
@@ -2535,11 +3135,14 @@ void setup_builtins() {
   builtins["+"] = (voidFunction)op_add;
   builtins["*"] = (voidFunction)op_mul;
   builtins["/"] = (voidFunction)op_div;
-  //builtins["rem"] = (voidFunction)op_rem;
+  builtins["%"] = (voidFunction)op_rem;
   builtins["-"] = (voidFunction)op_sub;
   builtins["<"] = (voidFunction)op_lt;
   builtins[">"] = (voidFunction)op_gt;
-  //builtins["%"] = (voidFunction)op_mod;
+  builtins[">="] = (voidFunction)op_gte;
+  builtins["<="] = (voidFunction)op_lte;
+  builtins["="] = (voidFunction)op_eq;
+  builtins["!="] = (voidFunction)op_ne;
   builtins["or"] = (voidFunction)op_or;
   builtins["xor"] = (voidFunction)op_xor;
   builtins["and"] = (voidFunction)op_and;
@@ -2572,20 +3175,29 @@ void setup_builtins() {
   builtins["succ"] = (voidFunction)op_succ;
   builtins["max"] = (voidFunction)op_max;
   builtins["min"] = (voidFunction)op_min;
-  //builtins["maxint"] = (voidFunction)op_or;
+  builtins["maxint"] = (voidFunction)op_maxint;
   builtins["rand"] = (voidFunction)op_rand;
 
   /** files/strings etc... **/
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-  //builtins["sign"] = (voidFunction)op_rand;
-
+  //builtins["fopen"] = (voidFunction)op_fopen;
+  //builtins["fclose"] = (voidFunction)op_fclose;
+  //builtins["feof"] = (voidFunction)op_feof;
+  //builtins["ferror"] = (voidFunction)op_ferror;
+  //builtins["fflush"] = (voidFunction)op_fflush;
+  //builtins["ferror"] = (voidFunction)op_ferror;
+  //builtins["fgetch"] = (voidFunction)op_fgetch;
+  //builtins["fgets"] = (voidFunction)op_fgets;
+  //builtins["fopen"] = (voidFunction)op_fopen;
+  //builtins["fread"] = (voidFunction)op_fread;
+  //builtins["fwrite"] = (voidFunction)op_fwrite;
+  //builtins["fremove"] = (voidFunction)op_fwrite;
+  //builtins["frename"] = (voidFunction)op_fwrite;
+  //builtins["fput"] = (voidFunction)op_fwrite;
+  //builtins["fputch"] = (voidFunction)op_fwrite;
+  //builtins["fputchars"] = (voidFunction)op_fwrite;
+  //builtins["fputstring"] = (voidFunction)op_fwrite;
+  //builtins["fseek"] = (voidFunction)op_fwrite;
+  //builtins["ftell"] = (voidFunction)op_fwrite;
 
   /** stack ops**/
   builtins["clear"] = (voidFunction)op_clear_stack;
@@ -2604,24 +3216,24 @@ void setup_builtins() {
   builtins["reverse"] = (voidFunction)op_reverse;
   builtins["at"] = (voidFunction)op_at;
   builtins["of"] = (voidFunction)op_of;
-  builtins["="] = (voidFunction)op_eq;
   builtins["null"] = (voidFunction)op_null;
   builtins["uncons"] = (voidFunction)op_uncons;
-  //builtins["ord"] = (voidFunction)op_ord;
-  //builtins["chr"] = (voidFunction)op_chr;
+  builtins["unstack"] = (voidFunction)op_unstack;
+  builtins["ord"] = (voidFunction)op_ord;
+  builtins["chr"] = (voidFunction)op_chr;
   //builtins["setsize"] = (voidFunction)op_setsize;
-  //builtins["stack"] = (voidFunction)op_setsize;
-  //builtins["id"] = (voidFunction)op_id;
-  //builtins["popd"] = (voidFunction)op_popd;
-  //builtins["dupd"] = (voidFunction)op_dupd;
-  //builtins["swapd"] = (voidFunction)op_swapd;
-  //builtins["rotated"] = (voidFunction)op_swapd;
-  //builtins["rollupd"] = (voidFunction)op_swapd;
-  //builtins["rolldownd"] = (voidFunction)op_swapd;
-  //builtins["choice"] = (voidFunction)op_choice;
-  //builtins["compare"] = (voidFunction)op_compare;
-  //builtins["opcase"] = (voidFunction)op_compare;
-  //builtins["case"] = (voidFunction)op_compare;
+  builtins["stack"] = (voidFunction)op_stack;
+  builtins["id"] = (voidFunction)op_id;
+  builtins["popd"] = (voidFunction)op_popd;
+  builtins["dupd"] = (voidFunction)op_dupd;
+  builtins["swapd"] = (voidFunction)op_swapd;
+  builtins["rotated"] = (voidFunction)op_rotated;
+  builtins["rollupd"] = (voidFunction)op_rollupd;
+  builtins["rolldownd"] = (voidFunction)op_rolldownd;
+  builtins["choice"] = (voidFunction)op_choice;
+  builtins["compare"] = (voidFunction)op_compare;
+  builtins["opcase"] = (voidFunction)op_opcase;
+  builtins["case"] = (voidFunction)op_case;
   //builtins["drop"] = (voidFunction)op_compare;
   //builtins["take"] = (voidFunction)op_compare;
   //builtins["enconcat"] = (voidFunction)op_compare;
@@ -2640,7 +3252,7 @@ void setup_builtins() {
   //builtins["user"] = (voidFunction)op_compare;
   //builtins["float"] = (voidFunction)op_compare;
   //builtins["file"] = (voidFunction)op_compare;
-
+  
   /** combinators **/
   builtins["i"] = (voidFunction)op_comb_i;
   builtins["x"] = (voidFunction)op_comb_x;
@@ -2652,12 +3264,11 @@ void setup_builtins() {
   builtins["step"] = (voidFunction)op_comb_step;
   builtins["filter"] = (voidFunction)op_comb_filter;
   builtins["split"] = (voidFunction)op_comb_split;
-
-  //builtins["app1"] = (voidFunction)op_comb_split;
-  //builtins["app11"] = (voidFunction)op_comb_split;
-  //builtins["app12"] = (voidFunction)op_comb_split;
+  builtins["app1"] = (voidFunction)op_comb_app1;
+  builtins["app11"] = (voidFunction)op_comb_app11;
+  builtins["app12"] = (voidFunction)op_comb_app12;
   //builtins["construct"] = (voidFunction)op_comb_split;
-  //builtins["nullary"] = (voidFunction)op_comb_split;
+  builtins["nullary"] = (voidFunction)op_comb_nullary;
   //builtins["unary"] = (voidFunction)op_comb_split;
   //builtins["unary2"] = (voidFunction)op_comb_split;
   //builtins["unary2"] = (voidFunction)op_comb_split;
@@ -3047,6 +3658,10 @@ void print_stack() {
   auto temp_ptr = STACK_SIZE-1;
 
   while (temp_ptr >= stack_ptr) {
+	if (stck[temp_ptr] == nullptr) {
+	  temp_ptr--;
+	  continue;
+	}
 	auto data = get_data(stck[temp_ptr]);
 	if (temp_ptr == stack_ptr)
 	  print_data(data, stck[temp_ptr], true);
