@@ -386,8 +386,8 @@ joy_object* op_at() {
 }
 
 joy_object* op_eq() {
-  if (STACK_SIZE - stack_ptr < 2){
-	std::cout << "ERROR - need at least two operands for at!\n";
+  if (cur_stack_size() < 2){
+	std::cout << "ERROR - need at least two operands for eq!\n";
 	return nullptr;
   }
 
@@ -401,19 +401,19 @@ joy_object* op_eq() {
 
   // TODO: sets
   joy_object* c;
-  if (t1 == INT && t2 == INT) {
-	auto int_a = get_int(a);
-	auto int_b = get_int(b);
+  if (t1 == t2){
+	auto data_a= get_data(a);
+	auto data_b= get_data(b);
 
-	auto res = int_a == int_b;
+	auto res = data_a == data_b;
 	auto res_o = new joy_object(res);
 	op_pop();
 	op_pop();
 	op_push(res_o, BOOL);
   }
   else {
-	std::cout << "type error - at requires an index and a list" ;
-	return nullptr;
+    std::cout << "ERROR - incompatible data types!\n";
+	  return nullptr;
   }
 
   return c;
@@ -2288,17 +2288,16 @@ void execute_term(bool is_x = false) {
 
   auto l = get_list(cur_list);
   for(auto i = 1; i < l.size(); i++) {
-	if (l[i]->type == OP){
-      std::cout << "pushing op\n";
-	  l[i]->op();
-	}
-	else {
+	  if (l[i]->type == OP){
+	    l[i]->op();
+	  }
+	  else {
 	  //temp_stack[--temp_stack_ptr] = l[i];
-	  op_push(l[i], l[i]->type);
-    if (l[i]->type == DEF) {
+	    op_push(l[i], l[i]->type);
+      if (l[i]->type == DEF) {
         execute_term();
       }
-	}
+	  }
   }
 
   //  for(auto i = temp_stack_ptr; i < STACK_SIZE/2; i++) {
@@ -2692,14 +2691,18 @@ void op_comb_app12() {
 
 
 void op_comb_x() {
-  if (op_get_head()->type != LIST)
-	std::cout << "x expects a LIST!\n";
+  if (op_get_head()->type != LIST) {
+	  std::cout << "x expects a LIST!\n";
+    return;
+  }
   execute_term(true);
 }
 
 void op_comb_dip() {
-  if (op_get_head()->type != LIST)
-	std::cout << "dip expects a LIST at the head position!\n";
+  if (op_get_head()->type != LIST){
+	  std::cout << "dip expects a LIST at the head position!\n";
+    return;
+  }
   auto a = op_pop();
   auto b = op_pop();
   op_push(a, a->type);
@@ -3941,25 +3944,23 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
   // otherwise it points to a joy_object, which would be
   // a user defined operation or value 
   if (i != input->end() && *i != ']' && *i != '}') {
-	  i = eat_space(input, i);
-	  if (peek(i, input, "==")) {
+	  auto j = eat_space(input, i);
+	  if (peek(j, input, "==")) {
 	    is_def = true;
-	    i+=2;
-	    std::tie(i,o) = parse_definition(++i, input);
+	    j+=2;
+	    std::tie(j,o) = parse_definition(++j, input);
       o->type = DEF;
 	    op_store(o, cur_ident);
+      return {j, o, is_def, user_ident};
 	  }
   }
-  else {
-	  o = op_retrieve(cur_ident);
-	  if (o == nullptr) {
+  o = op_retrieve(cur_ident);
+	if (o == nullptr) {
 	   std::cout << "Identifier " << cur_ident << " not found!\n";
       return {i, o, is_def, user_ident};
     }
-	  user_ident = true;
-    o->ident = cur_ident;
-  }
-
+	user_ident = true;
+  o->ident = cur_ident;
   return {i, o, is_def, user_ident};
 }
 
@@ -4224,6 +4225,7 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
 	  std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true); 
 	  // if that was not a defintion, push it to the stack
 	  if (o == nullptr) {
+        std::cout << "is null\n";
 		it = input.end();
 		continue;
 	  }
