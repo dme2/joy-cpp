@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -15,8 +16,7 @@
 
 /*
  * TODO:
- *  [x] setup builtin op dictionary
- *  [x] finish definition parsing
+ *  [x] setup builtin op dictionary [x] finish definition parsing
  *  [x] test sets
  *  [x] float parsing
  *  [] error checking on parsing 
@@ -64,7 +64,7 @@
 
 typedef void (*voidFunction)(void); 
 
-enum Type { BOOL, INT, STR, FLOAT, LIST, SET, OP, CHAR };
+enum Type { BOOL, INT, STR, FLOAT, LIST, SET, OP, CHAR, DEF };
 
 struct joy_object;
 
@@ -164,6 +164,9 @@ get_data(joy_object* o) {
 	case LIST:
 	  return get_list(o);
 	  break;
+  case DEF:
+    return get_list(o);
+    break;
 	case SET:
 	  return get_set(o);
 	  break;
@@ -196,7 +199,7 @@ uint8_t cur_stack_size() {
 // returns a handle for the stored object
 joy_object* op_store(joy_object* obj, std::string name) {
   if (auto found = heap.find(name) != heap.end())
-	return heap[name];
+	  return heap[name];
 
   heap[name] = obj;
   return heap[name];
@@ -204,8 +207,9 @@ joy_object* op_store(joy_object* obj, std::string name) {
 
 joy_object* op_retrieve(std::string name) {
   int64_t found;
-  if ((found = heap.find(name) == heap.end()))
-	return nullptr;
+  if ((found = heap.find(name) == heap.end())) {
+	  return nullptr;
+  }
 
   return heap[name];
 }
@@ -2279,17 +2283,21 @@ void execute_term(bool is_x = false) {
   else
 	cur_list = op_peek(0);
 
-  if (cur_list->type != LIST)
-	return;
+  if (cur_list->type != LIST && cur_list->type != DEF)
+	  return;
 
   auto l = get_list(cur_list);
   for(auto i = 1; i < l.size(); i++) {
 	if (l[i]->type == OP){
+      std::cout << "pushing op\n";
 	  l[i]->op();
 	}
 	else {
 	  //temp_stack[--temp_stack_ptr] = l[i];
 	  op_push(l[i], l[i]->type);
+    if (l[i]->type == DEF) {
+        execute_term();
+      }
 	}
   }
 
@@ -2421,8 +2429,11 @@ joy_object* op_stack() {
 
 
 void op_comb_i () {
-  if (op_get_head()->type != LIST)
-	std::cout << "i expects a LIST!\n";
+  if (op_get_head()->type != LIST && op_get_head()->type != DEF) {
+     std::cout << op_get_head()->type << "\n";
+   	  std::cout << "i expects a LIST or a definition!!\n";
+      return;
+  }
   execute_term();
 }
 
@@ -2505,6 +2516,93 @@ void op_comb_app1() {
   return;
 }
 
+void op_comb_branch() {
+  if (cur_stack_size() < 3) {
+	std::cout << "Error - branch expects 3 params\n!";
+	return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+  // bool
+  auto c = op_peek(2);
+
+  if (a->type != LIST || b->type != LIST || c->type != BOOL) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  a = op_pop();
+  b = op_pop();
+  c = op_pop();
+
+  if (get_bool(c) == true) {
+    op_push(b, b->type);
+    op_comb_i();
+  }
+  else {
+    op_push(a, a->type);
+    op_comb_i();
+  }
+
+  return;
+}
+
+
+std::optional<bool> push_and_execute(joy_object* testcase) {
+  if (testcase->type != LIST)  {
+    std::cout << "testcase must a program!\n";
+    return {};
+  }
+  
+  op_push(testcase, LIST);
+  std::cout << "pushing test case\n";
+  op_comb_i();
+  auto head = op_get_head();
+  if (head == nullptr || head->type != BOOL) {
+    std::cout << "invalid testcase!\n";
+    return {};
+  }
+
+  std::cout << "ran test case\n";
+  if (get_bool(head) == true)
+    return true;
+  
+  return false;
+  
+}
+
+void op_comb_while() {
+  if (cur_stack_size() < 2) {
+	  std::cout << "Error - while expects 2 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+
+  if (a->type != LIST || b->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  a = op_pop();
+  b = op_pop();
+
+  while (push_and_execute(b).value_or(false)) {
+    op_push(a, a->type);
+    op_comb_i();
+  }
+
+  return;
+}
+
+
+
 // e.g.
 // 1 2 [1 +] -> 3
 // 1 2 [1 2 +] -> 3
@@ -2525,8 +2623,8 @@ void op_comb_app11() {
   int c_pos = stack_ptr + 2;
 
   if (a->type != LIST) {
-	std::cout << "type error on params!\n";
-	return;
+  	std::cout << "type error on params!\n";
+	  return;
   }
 
   op_comb_i();
@@ -2655,7 +2753,7 @@ joy_object* op_swapd() {
   l1.push_back(head);
 	
   auto op_obj = new joy_object(OP);
-  op_obj->op = (voidFunction)op_swapd;
+  op_obj->op = (voidFunction)op_swap;
   l1.push_back(op_obj);
   auto obj = new joy_object(l1);
   op_push(obj, LIST);
@@ -2673,7 +2771,7 @@ joy_object* op_rollupd() {
   l1.push_back(head);
 	
   auto op_obj = new joy_object(OP);
-  op_obj->op = (voidFunction)op_rollupd;
+  op_obj->op = (voidFunction)op_rollup;
   l1.push_back(op_obj);
   auto obj = new joy_object(l1);
   op_push(obj, LIST);
@@ -2691,7 +2789,7 @@ joy_object* op_rolldownd() {
   l1.push_back(head);
 	
   auto op_obj = new joy_object(OP);
-  op_obj->op = (voidFunction)op_rolldownd;
+  op_obj->op = (voidFunction)op_rolldown;
   l1.push_back(op_obj);
   auto obj = new joy_object(l1);
   op_push(obj, LIST);
@@ -2709,7 +2807,7 @@ joy_object* op_rotated() {
   l1.push_back(head);
 	
   auto op_obj = new joy_object(OP);
-  op_obj->op = (voidFunction)op_rotated;
+  op_obj->op = (voidFunction)op_rotate;
   l1.push_back(op_obj);
   auto obj = new joy_object(l1);
   op_push(obj, LIST);
@@ -2793,6 +2891,7 @@ joy_object* op_opcase() {
 
   if (t_a != LIST) {
 	std::cout << "opcase expects a list param!\n";
+	return nullptr;
   }
 
   std::vector<joy_object*> res_list;
@@ -2836,6 +2935,7 @@ joy_object* op_case() {
 
   if (t_a != LIST) {
 	std::cout << "opcase expects a list param!\n";
+	return nullptr;
   }
 
   std::vector<joy_object*> res_list;
@@ -2866,6 +2966,382 @@ joy_object* op_case() {
 
   return nullptr;
 }
+
+joy_object* op_drop() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - drop requires 2 params\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST || t_b != INT) {
+	std::cout << "drop expects a list and int!\n";
+	return nullptr;
+  }
+
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+	
+  auto l_a = get_list(a);
+  for (int i = get_int(b)+1; i < l_a.size(); i++) {
+	res_list.push_back(l_a[i]);
+  }
+
+  op_pop();
+  op_pop();
+  auto res_obj = new joy_object(res_list);
+  op_push(res_obj, LIST);
+
+  return res_obj;
+}
+
+joy_object* op_take() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - take requires 2 params\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST || t_b != INT) {
+	std::cout << "take expects a list and int!\n";
+	return nullptr;
+  }
+
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+	
+  auto l_a = get_list(a);
+  for (int i = 1; i <= get_int(b); i++) {
+	res_list.push_back(l_a[i]);
+  }
+
+  op_pop();
+  op_pop();
+  auto res_obj = new joy_object(res_list);
+  op_push(res_obj, LIST);
+
+  return res_obj;
+}
+
+joy_object* op_concat() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - concat requires 2 params\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST || t_b != LIST) {
+	std::cout << "concat expects two lists\n";
+	return nullptr;
+  }
+
+  auto l_a = get_list(a);
+  auto l_b = get_list(b);
+
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+
+  for(int i = 1; i < l_a.size(); i++)
+	res_list.push_back(l_a[i]);
+
+  for(int i = 1; i < l_b.size(); i++)
+	res_list.push_back(l_b[i]);
+
+  auto res_obj = new joy_object(res_list);
+  op_pop();
+  op_pop();
+  op_push(res_obj, LIST);
+
+  return res_obj;
+}
+
+joy_object* op_enconcat() {
+  if (cur_stack_size() < 3) {
+	std::cout << "ERROR - enconcat requires 3 params\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+  auto c = op_peek(2);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST || t_b != LIST) {
+	std::cout << "enconcat expects two lists\n";
+	return nullptr;
+  }
+
+  op_swapd();
+  op_cons();
+  op_concat();
+
+  return nullptr;
+}
+
+joy_object* op_has() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - has requires 2 params\n";
+	return nullptr;
+  }
+
+  auto b = op_peek(0);
+  auto a = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST) {
+	std::cout << "op has expects a list\n";
+	return nullptr;
+  }
+
+  auto l_a = get_list(a);
+  auto b_  = get_data(b);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+
+  op_pop();
+  op_pop();
+
+  for (int i = 1; i < l_a.size(); i++) {
+    if (l_a[i]->type == t_b) {
+      if (get_data(l_a[i]) == b_){
+        op_push(t, BOOL);
+        return t;
+      }
+    }
+  }
+
+  op_push(f, BOOL);
+  return f;
+
+}
+
+joy_object* op_in() {
+  if (cur_stack_size() < 2) {
+	std::cout << "ERROR - in requires 2 params\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+  auto b = op_peek(1);
+  auto t_a = a->type;
+  auto t_b = b->type;
+
+  if (t_a != LIST) {
+	std::cout << "op in expects a list\n";
+	return nullptr;
+  }
+
+  auto l_a = get_list(a);
+  auto b_  = get_data(b);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+
+  op_pop();
+  op_pop();
+
+  for (int i = 1; i < l_a.size(); i++) {
+    if (l_a[i]->type == t_b) {
+      if (get_data(l_a[i]) == b_){
+        op_push(t, BOOL);
+        return t;
+      }
+    }
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_integer() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - integer requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == INT){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_float() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - float requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == FLOAT){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_string() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - string requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == STR){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_char() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - char requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == CHAR){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+
+joy_object* op_logical() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - logical requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == BOOL){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_list() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - list requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == LIST){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_leaf() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - leaf requires 1 param\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type != LIST){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+joy_object* op_set() {
+  if (cur_stack_size() < 1) {
+	std::cout << "ERROR - list requires 2 params\n";
+	return nullptr;
+  }
+
+  auto a = op_peek(0);
+
+  auto t = new joy_object(true);
+  auto f = new joy_object(false);
+  op_pop();
+
+  if(a->type == SET){
+    op_push(t, BOOL);
+    return t;
+  }
+
+  op_push(f, BOOL);
+  return f;
+}
+
+
+
 
 // TODO: is this correct?
 void op_comb_nullary() {
@@ -3234,23 +3710,24 @@ void setup_builtins() {
   builtins["compare"] = (voidFunction)op_compare;
   builtins["opcase"] = (voidFunction)op_opcase;
   builtins["case"] = (voidFunction)op_case;
-  //builtins["drop"] = (voidFunction)op_compare;
-  //builtins["take"] = (voidFunction)op_compare;
-  //builtins["enconcat"] = (voidFunction)op_compare;
+  builtins["drop"] = (voidFunction)op_drop;
+  builtins["take"] = (voidFunction)op_take;
+  builtins["concat"] = (voidFunction)op_concat;
+  builtins["enconcat"] = (voidFunction)op_enconcat;
   //builtins["name"] = (voidFunction)op_compare;
   //builtins["intern"] = (voidFunction)op_compare;
   //builtins["body"] = (voidFunction)op_compare;
-  //builtins["has"] = (voidFunction)op_compare;
-  //builtins["in"] = (voidFunction)op_compare;
-  //builtins["integer"] = (voidFunction)op_compare;
-  //builtins["char"] = (voidFunction)op_compare;
-  //builtins["logical"] = (voidFunction)op_compare;
-  //builtins["set"] = (voidFunction)op_compare;
-  //builtins["string"] = (voidFunction)op_compare;
-  //builtins["list"] = (voidFunction)op_compare;
-  //builtins["leaf"] = (voidFunction)op_compare;
+  builtins["has"] = (voidFunction)op_has;
+  builtins["in"] = (voidFunction)op_in;
+  builtins["integer"] = (voidFunction)op_integer;
+  builtins["char"] = (voidFunction)op_char;
+  builtins["logical"] = (voidFunction)op_logical;
+  builtins["set"] = (voidFunction)op_set;
+  builtins["string"] = (voidFunction)op_string;
+  builtins["list"] = (voidFunction)op_list;
+  builtins["leaf"] = (voidFunction)op_leaf;
   //builtins["user"] = (voidFunction)op_compare;
-  //builtins["float"] = (voidFunction)op_compare;
+  builtins["float"] = (voidFunction)op_float;
   //builtins["file"] = (voidFunction)op_compare;
   
   /** combinators **/
@@ -3269,14 +3746,11 @@ void setup_builtins() {
   builtins["app12"] = (voidFunction)op_comb_app12;
   //builtins["construct"] = (voidFunction)op_comb_split;
   builtins["nullary"] = (voidFunction)op_comb_nullary;
-  //builtins["unary"] = (voidFunction)op_comb_split;
-  //builtins["unary2"] = (voidFunction)op_comb_split;
-  //builtins["unary2"] = (voidFunction)op_comb_split;
-  //builtins["unary3"] = (voidFunction)op_comb_split;
-  //builtins["unary4"] = (voidFunction)op_comb_split;
-  //builtins["binary"] = (voidFunction)op_comb_split;
+  builtins["unary"] = (voidFunction)op_comb_app1;
+  builtins["unary2"] = (voidFunction)op_comb_app12; // TODO
+  builtins["binary"] = (voidFunction)op_comb_app12; // TODO
   //builtins["ternary"] = (voidFunction)op_comb_split;
-  //builtins["branch"] = (voidFunction)op_comb_split;
+  builtins["branch"] = (voidFunction)op_comb_branch;
   //builtins["ifinteger"] = (voidFunction)op_comb_split;
   //builtins["ifchar"] = (voidFunction)op_comb_split;
   //builtins["iflogical"] = (voidFunction)op_comb_split;
@@ -3286,7 +3760,7 @@ void setup_builtins() {
   //builtins["iffloat"] = (voidFunction)op_comb_split;
   //builtins["iffile"] = (voidFunction)op_comb_split;
   //builtins["cond"] = (voidFunction)op_comb_split;
-  //builtins["while"] = (voidFunction)op_comb_split;
+  builtins["while"] = (voidFunction)op_comb_while;
   //builtins["linerec"] = (voidFunction)op_comb_split;
   //builtins["tailrec"] = (voidFunction)op_comb_split;
   //builtins["binrec"] = (voidFunction)op_comb_split;
@@ -3435,7 +3909,7 @@ parse_list(std::string::const_iterator it, std::string* input, Type t);
 std::tuple<std::string::const_iterator, joy_object*>
 parse_definition(std::string::const_iterator i, std::string* input) {
   joy_object* o;
-  std::tie(i,o)  = parse_list(i, input, LIST);
+  std::tie(i,o)  = parse_list(i, input, DEF);
   return {i,o};
 }
 
@@ -3466,21 +3940,26 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
 
   // otherwise it points to a joy_object, which would be
   // a user defined operation or value 
-  if (i != input->end()) {
-	i = eat_space(input, i);
-	if (peek(i, input, "==")) {
-	  is_def = true;
-	  i+=2;
-	  std::tie(i,o) = parse_definition(++i, input);
-	  op_store(o, cur_ident);
-	}
+  if (i != input->end() && *i != ']' && *i != '}') {
+	  i = eat_space(input, i);
+	  if (peek(i, input, "==")) {
+	    is_def = true;
+	    i+=2;
+	    std::tie(i,o) = parse_definition(++i, input);
+      o->type = DEF;
+	    op_store(o, cur_ident);
+	  }
   }
   else {
-	o = op_retrieve(cur_ident);
-	if (o == nullptr)
-	  std::cout << "Identifier " << cur_ident << " not found!\n";
-	user_ident = true;
+	  o = op_retrieve(cur_ident);
+	  if (o == nullptr) {
+	   std::cout << "Identifier " << cur_ident << " not found!\n";
+      return {i, o, is_def, user_ident};
+    }
+	  user_ident = true;
+    o->ident = cur_ident;
   }
+
   return {i, o, is_def, user_ident};
 }
 
@@ -3494,15 +3973,15 @@ parse_set(std::string::const_iterator i, std::string* input);
 std::tuple<std::string::const_iterator, joy_object*>
 parse_list(std::string::const_iterator it, std::string* input, Type t) {
   std::vector<joy_object*> cur_list;
-  joy_object* head;
+  joy_object* head = new joy_object(t);
   bool is_def;
   bool user_ident;
   bool is_float;
 
-  if (t == LIST)
-	head = new joy_object(LIST);
-  else
-	head = new joy_object(SET);
+  //if (t == LIST)
+	 // head = new joy_object(LIST);
+  //else
+	 // head = new joy_object(SET);
 	
   cur_list.push_back(head);
 
@@ -3627,7 +4106,10 @@ void print_data(std::variant<int64_t,
 	  case 4:
 		{
 		  std::vector<joy_object*> obj = std::get<std::vector<joy_object*>>(data);	
-		  if (get_type(obj[0]) == SET) {
+      if(get_type(obj[0]) == DEF) {
+        std::cout << o->ident;
+      } 
+      else if (get_type(obj[0]) == SET) {
 			std::cout << "{ ";
 			for (int i=1; i < obj.size(); i++)
 			  if (i == obj.size()-1)
@@ -3639,8 +4121,9 @@ void print_data(std::variant<int64_t,
 		else {
 		  std::cout << "[";
 		  for (int i=1; i < obj.size(); i++)
-			if (i == obj.size()-1)
+			if (i == obj.size()-1) {
 			  print_data(get_data(obj[i]), obj[i], false);
+      }
 			else
 			  print_data(get_data(obj[i]), obj[i]);
 		  std::cout << "] ";
@@ -3780,10 +4263,9 @@ void interpret_file(std::string file_path) {
   if (in_file.is_open()) {
 	while (std::getline(in_file, line, ';')) {
 	  // std::cout << line << std::endl;
-	  parse_line(line);
-	}
-  }
-  
+  	  parse_line(line);
+  	}
+    }
 }
 
 int main(int argc, char *argv[]) {
