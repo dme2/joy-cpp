@@ -52,12 +52,13 @@
  *     ... and many more
  *  [x] fix type checking (should happen before popping the values off somehow?)
  *  [] add block (DEFINITION, LIBRA) parsing
- *  [] add file/stdin parsing modes
+ *  [x] add file/stdin parsing modes
  *  [] error handling
  *  [] garbage collection ? (joy doesn't really use variables in the same way as most
        langs, so this might not be necessary. we just have to clean the stack out
 	   when necessary)
- *  [] plan out recursive combinators
+ *  [x] plan out recursive combinators
+ *  [x] fix definition parsing inside of quoted programs
  */
 
 #define STACK_SIZE 1000
@@ -198,8 +199,8 @@ uint8_t cur_stack_size() {
 /** VM MEMORY FUNCTIONS **/
 // returns a handle for the stored object
 joy_object* op_store(joy_object* obj, std::string name) {
-  if (auto found = heap.find(name) != heap.end())
-	  return heap[name];
+  //if (auto found = heap.find(name) != heap.end())
+	 // return heap[name];
 
   heap[name] = obj;
   return heap[name];
@@ -242,9 +243,8 @@ joy_object* op_grab(uint64_t pos) {
 
 joy_object* op_pop() {
   if (stack_ptr == STACK_SIZE) {
-	std::cout << "ERROR - stack empty!\n";
-	return nullptr;
-	
+	  std::cout << "ERROR - stack empty!\n";
+	  return nullptr;
   }
   // printf("Stack ptr: %i\n", stack_ptr);
   return stck[stack_ptr++];
@@ -2557,20 +2557,77 @@ std::optional<bool> push_and_execute(joy_object* testcase) {
   }
   
   op_push(testcase, LIST);
-  std::cout << "pushing test case\n";
   op_comb_i();
   auto head = op_get_head();
-  if (head == nullptr || head->type != BOOL) {
-    std::cout << "invalid testcase!\n";
+
+  if (head == nullptr || head->type != BOOL){
     return {};
   }
 
-  std::cout << "ran test case\n";
-  if (get_bool(head) == true)
+  if (get_bool(head) == true) {
+    op_pop();
     return true;
+  }
   
+  op_pop();
   return false;
   
+}
+
+void op_comb_cond() {
+  if (cur_stack_size() < 1) {
+	  std::cout << "Error - cond expects 1 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+
+  if (a->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  auto l_a = get_list(a);
+  joy_object* to_run = nullptr;
+
+  for (int i = 1; i < l_a.size(); i++) {
+    if (i == l_a.size()-1) {
+      to_run = l_a[i]; 
+      continue;
+    } 
+
+    if (get_type(l_a[i]) != LIST) {
+      std::cout << "cond expects a list of lists!\n";
+      return;
+    }
+  
+    joy_object* l = l_a[i];
+    auto l1 = get_list(l);
+    auto res = push_and_execute(l1[1]).value_or(false);
+
+    if (res) {
+      std::vector<joy_object*> res_list;
+      auto head = new joy_object(LIST);
+      res_list.push_back(head);
+      for (int j = 2; j < l1.size(); j++) {
+        res_list.push_back(l1[j]);
+      }
+      to_run = new joy_object(res_list);
+      break;
+    }
+  }
+
+  if (to_run == nullptr) {
+    std::cout << "error on cond!\n";
+    return;
+  }
+
+  op_pop();
+  op_push(to_run, LIST);
+  op_comb_i();
+
+  return;
 }
 
 void op_comb_while() {
@@ -2600,6 +2657,72 @@ void op_comb_while() {
   return;
 }
 
+void op_comb_linrec() {
+  if (cur_stack_size() < 5) {
+	  std::cout << "Error - linrec expects 5 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+  // list3 
+  auto c = op_peek(2);
+  // list4 
+  auto d = op_peek(3);
+  // X
+  auto e = op_peek(4);
+
+  if (a->type != LIST || b->type != LIST || c->type != LIST || d->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  for (int i = 0; i < 5; i++){
+    op_pop();
+  }
+
+  op_push(e, e->type);
+  auto res = push_and_execute(d).value_or(-1);
+
+  joy_object* res_obj;
+
+  int count = 0;
+  while(res == false){
+    op_push(e, e->type);
+    op_push(b, b->type);
+    op_comb_i();
+
+    e = op_get_head();
+    res = push_and_execute(d).value_or(-1);
+    if(res == true) {
+      op_push(e, e->type);
+      op_push(c, c->type);
+      op_comb_i();
+      break;
+    }
+
+    //op_push(e, e->type);
+    //op_push(a, a->type);
+
+    //op_comb_i();
+    //op_push(e, e->type);
+
+    count++;
+    if (count == 100){
+      std::cout << "recursion limit reached!\n";
+      break;
+    }
+  }
+  
+  for (int i = 0; i <= count; i++) {
+    op_push(a, a->type);
+    op_comb_i();
+  }
+
+  return;
+}
 
 
 // e.g.
@@ -3762,9 +3885,9 @@ void setup_builtins() {
   //builtins["iflist"] = (voidFunction)op_comb_split;
   //builtins["iffloat"] = (voidFunction)op_comb_split;
   //builtins["iffile"] = (voidFunction)op_comb_split;
-  //builtins["cond"] = (voidFunction)op_comb_split;
+  builtins["cond"] = (voidFunction)op_comb_cond;
   builtins["while"] = (voidFunction)op_comb_while;
-  //builtins["linerec"] = (voidFunction)op_comb_split;
+  builtins["linrec"] = (voidFunction)op_comb_linrec;
   //builtins["tailrec"] = (voidFunction)op_comb_split;
   //builtins["binrec"] = (voidFunction)op_comb_split;
   //builtins["genrec"] = (voidFunction)op_comb_split;
@@ -3923,7 +4046,7 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
   bool user_ident = false;
 
   while(i != input->end()) {
-	if (*i == ' ' || *i == ']' || *i == '}') {
+	if (*i == ' ' || *i == ']' || *i == '}' || *i == '=') {
 	  break;
 	}
 	cur_ident += *i;  
@@ -3948,7 +4071,7 @@ parse_ident(std::string::const_iterator i, std::string* input, bool exec=false) 
 	  if (peek(j, input, "==")) {
 	    is_def = true;
 	    j+=2;
-	    std::tie(j,o) = parse_definition(++j, input);
+	    std::tie(j,o) = parse_definition(j, input);
       o->type = DEF;
 	    op_store(o, cur_ident);
       return {j, o, is_def, user_ident};
@@ -4225,7 +4348,6 @@ void parse_line(std::string input, joy_object* cur_stack=*stck) {
 	  std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true); 
 	  // if that was not a defintion, push it to the stack
 	  if (o == nullptr) {
-        std::cout << "is null\n";
 		it = input.end();
 		continue;
 	  }
