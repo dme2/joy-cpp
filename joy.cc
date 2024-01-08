@@ -1,12 +1,12 @@
 #include <algorithm>
-#include <cassert>
+//#include <cassert>
 #include <cstdint>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <limits>
-#include <memory>
+//#include <limits>
+//#include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -45,10 +45,10 @@
  *     [x] size
  *     [x] swons
  *     [x] x
- *     [] primrec
+ *     [x] primrec
  *     [] powerlist
- *     [] linrec
- *     [] binrec
+ *     [x] linrec
+ *     [x] binrec
  *     ... and many more
  *  [x] fix type checking (should happen before popping the values off somehow?)
  *  [] add block (DEFINITION, LIBRA) parsing
@@ -2188,10 +2188,14 @@ joy_object* op_small() {
 	std::cout << "ERROR on size - stack size less than 1!\n";
 	return nullptr;
   }
-  auto res1 = op_size(false);
-  auto i_res = get_int(res1);
-  auto res = i_res <= 1 ? new joy_object(true) : new joy_object(false);
+  auto a = op_peek(0);
+  if (a->type != INT) {
+    std::cout << "type error on small\n";
+    return nullptr;
+  }
   op_pop();
+  auto i_res = get_int(a);
+  auto res = i_res <= 1 ? new joy_object(true) : new joy_object(false);
   op_push(res, BOOL);
   return res;
 }
@@ -2316,13 +2320,12 @@ void execute_term_list(joy_object* l, joy_object* p) {
   auto cur_list = op_pop();
 
   if (cur_list->type != LIST)
-	return;
+	  return;
 
   joy_object* result_list = new joy_object(LIST);
 
   joy_object* temp_stack[STACK_SIZE/2];
   auto temp_stack_ptr = STACK_SIZE/2;
-
 
   auto li = get_list(cur_list);
 
@@ -2703,16 +2706,9 @@ void op_comb_linrec() {
       break;
     }
 
-    //op_push(e, e->type);
-    //op_push(a, a->type);
-
-    //op_comb_i();
-    //op_push(e, e->type);
-
-    count++;
-    if (count == 100){
+    if (count++ == 1000){
       std::cout << "recursion limit reached!\n";
-      break;
+      return;
     }
   }
   
@@ -2724,6 +2720,185 @@ void op_comb_linrec() {
   return;
 }
 
+void op_comb_tailrec() {
+  if (cur_stack_size() < 4) {
+	  std::cout << "Error - linrec expects 4 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+  // list3 
+  auto c = op_peek(2);
+  // X 
+  auto d = op_peek(3);
+
+  if (a->type != LIST || b->type != LIST || c->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  for (int i = 0; i < 4; i++){
+    op_pop();
+  }
+
+  bool res = false;
+  int count = 0;
+
+  op_push(d, d->type);
+  while(res == false){
+    auto temp = op_peek(0);
+    op_push(c, c->type);
+    op_comb_i();
+    res = get_bool(op_get_head());
+    if (res) {
+      op_pop();
+      op_push(temp, temp->type);
+      op_push(b, b->type);
+      op_comb_i();
+      break; 
+    }
+
+    op_pop();
+    op_push(temp, temp->type);
+    op_push(a, a->type);
+    op_comb_i();
+
+    if (count++ == 1000){
+      std::cout << "recursion limit reached!\n";
+      return;
+    }
+  }
+  
+  return;
+}
+
+void op_comb_binrec() {
+  if (cur_stack_size() < 5) {
+	  std::cout << "Error - binrec expects 5 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+  // list3 
+  auto c = op_peek(2);
+  // list4 
+  auto d = op_peek(3);
+  // X
+  auto e = op_peek(4);
+
+  if (a->type != LIST || b->type != LIST || c->type != LIST || d->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  for (int i = 0; i < 5; i++){
+    op_pop();
+  }
+
+  bool res = false;
+  int count = 0;
+
+  op_push(e, e->type);
+
+  while(res == false){
+    auto temp = op_peek(0);
+    op_push(d, d->type);
+    op_comb_i();
+    res = get_bool(op_get_head());
+
+    if (res) {
+      op_pop();
+      op_push(temp, temp->type);
+      op_push(c, c->type);
+      op_comb_i();
+      break; 
+    }
+
+    op_pop();
+    op_push(temp, temp->type);
+    op_push(b, b->type);
+    op_comb_i();
+
+    if (count++ == 1000){
+      std::cout << "recursion limit reached!\n";
+      return;
+    }
+  }
+  
+  for(int i = 0; i < count; i++) {
+    op_push(a, a->type);
+    op_comb_i();
+  }
+ 
+  return;
+}
+
+void op_comb_primrec() {
+  if (cur_stack_size() < 3) {
+	  std::cout << "Error - primrec expects 3 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+  // X 
+  auto c = op_peek(2);
+
+  if (a->type != LIST || b->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  for (int i = 0; i < 3; i++){
+    op_pop();
+  }
+
+  joy_object* res_obj;
+
+  op_push(c, c->type);
+  op_null();
+
+  auto temp = op_get_head();
+  auto res = get_bool(temp);
+  op_pop();
+
+  op_push(c, c->type);
+  int count = 0;
+  while(res == false){
+    op_dup();
+    auto temp = op_pred();
+    op_null();
+
+    if (get_bool(op_get_head()) == true) {
+      op_pop();
+      op_push(b, b->type);
+      op_comb_i();
+      break;
+    }
+
+    op_pop();
+    op_push(temp, temp->type);
+    if (count++ == 1000){
+      std::cout << "recursion limit reached!\n";
+      return;
+    }
+  }
+
+  for (int i = 0; i <= count; i++) {
+    op_push(a, a->type);
+    op_comb_i();
+  }
+ 
+  return;
+}
 
 // e.g.
 // 1 2 [1 +] -> 3
@@ -3888,14 +4063,14 @@ void setup_builtins() {
   builtins["cond"] = (voidFunction)op_comb_cond;
   builtins["while"] = (voidFunction)op_comb_while;
   builtins["linrec"] = (voidFunction)op_comb_linrec;
-  //builtins["tailrec"] = (voidFunction)op_comb_split;
-  //builtins["binrec"] = (voidFunction)op_comb_split;
+  builtins["tailrec"] = (voidFunction)op_comb_tailrec;
+  builtins["binrec"] = (voidFunction)op_comb_binrec;
   //builtins["genrec"] = (voidFunction)op_comb_split;
   //builtins["condnestrec"] = (voidFunction)op_comb_split;
   //builtins["condlinerec"] = (voidFunction)op_comb_split;
   //builtins["times"] = (voidFunction)op_comb_split;
   //builtins["infra"] = (voidFunction)op_comb_split;
-  //builtins["primerec"] = (voidFunction)op_comb_split;
+  builtins["primrec"] = (voidFunction)op_comb_primrec;
   //builtins["some"] = (voidFunction)op_comb_split;
   //builtins["all"] = (voidFunction)op_comb_split;
   //builtins["treestep"] = (voidFunction)op_comb_split;
