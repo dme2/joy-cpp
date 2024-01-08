@@ -2839,6 +2839,85 @@ void op_comb_binrec() {
   return;
 }
 
+void op_comb_genrec() {
+  if (cur_stack_size() < 5) {
+	  std::cout << "Error - genrec expects 5 params\n!";
+	  return;
+  }
+
+  // list 
+  auto a = op_peek(0);
+  // list2 
+  auto b = op_peek(1);
+  // list3 
+  auto c = op_peek(2);
+  // list4 
+  auto d = op_peek(3);
+  // X
+  auto e = op_peek(4);
+
+  if (a->type != LIST || b->type != LIST || c->type != LIST || d->type != LIST) {
+	  std::cout << "type error on params!\n";
+	  return;
+  }
+
+  for (int i = 0; i < 5; i++){
+    op_pop();
+  }
+
+  bool res = false;
+
+  op_push(e, e->type);
+
+  auto temp = op_peek(0);
+  op_push(d, d->type);
+  op_comb_i();
+  res = get_bool(op_get_head());
+
+  if (res) {
+    op_pop();
+    op_push(temp, temp->type);
+    op_push(c, c->type);
+    op_comb_i();
+    return;
+  }
+
+  op_pop();
+  op_push(temp, temp->type);
+  op_push(b, b->type);
+  op_comb_i();
+
+  // res is top of stack so...
+  // new list here
+  std::vector<joy_object*> res_list;
+  auto head = new joy_object(LIST);
+  res_list.push_back(head);
+ 
+  res_list.push_back(d);
+  res_list.push_back(c);
+  res_list.push_back(b);
+  res_list.push_back(a);
+
+  auto op_obj = new joy_object(OP);
+  op_obj->op = (voidFunction)op_comb_genrec;
+  res_list.push_back(op_obj);
+ 
+  auto joy_list = new joy_object(res_list);
+
+  // TODO:
+  // need a general recursion limit
+//  if (genrec_count++ == 1000){
+ //   std::cout << "recursion limit reached!\n";
+  //  return;
+  //}
+  
+  op_push(joy_list, LIST);
+  op_push(a, a->type);
+  op_comb_i();
+ 
+  return;
+}
+
 void op_comb_primrec() {
   if (cur_stack_size() < 3) {
 	  std::cout << "Error - primrec expects 3 params\n!";
@@ -4048,8 +4127,8 @@ void setup_builtins() {
   //builtins["construct"] = (voidFunction)op_comb_split;
   builtins["nullary"] = (voidFunction)op_comb_nullary;
   builtins["unary"] = (voidFunction)op_comb_app1;
-  builtins["unary2"] = (voidFunction)op_comb_app12; // TODO
-  builtins["binary"] = (voidFunction)op_comb_app12; // TODO
+  //builtins["unary2"] = (voidFunction)op_comb_app12; // TODO
+  //builtins["binary"] = (voidFunction)op_comb_app12; // TODO
   //builtins["ternary"] = (voidFunction)op_comb_split;
   builtins["branch"] = (voidFunction)op_comb_branch;
   //builtins["ifinteger"] = (voidFunction)op_comb_split;
@@ -4065,7 +4144,7 @@ void setup_builtins() {
   builtins["linrec"] = (voidFunction)op_comb_linrec;
   builtins["tailrec"] = (voidFunction)op_comb_tailrec;
   builtins["binrec"] = (voidFunction)op_comb_binrec;
-  //builtins["genrec"] = (voidFunction)op_comb_split;
+  builtins["genrec"] = (voidFunction)op_comb_genrec;
   //builtins["condnestrec"] = (voidFunction)op_comb_split;
   //builtins["condlinerec"] = (voidFunction)op_comb_split;
   //builtins["times"] = (voidFunction)op_comb_split;
