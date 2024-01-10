@@ -41,7 +41,7 @@
  *     [x] small
  *     [x] pred
  *     [x] succ
- *     [] treerec
+ *     [x] treerec
  *     [x] size
  *     [x] swons
  *     [x] x
@@ -51,7 +51,7 @@
  *     [x] binrec
  *     ... and many more
  *  [x] fix type checking (should happen before popping the values off somehow?)
- *  [] add block (DEFINITION, LIBRA) parsing
+ *  [] add block (DEFINITION, LIBRA) parsing ?
  *  [x] add file/stdin parsing modes
  *  [] error handling
  *  [] garbage collection ? (joy doesn't really use variables in the same way as
@@ -2865,7 +2865,63 @@ void op_comb_primrec() {
   return;
 }
 
-// joy_object* op_append();
+joy_object* op_append();
+
+void treerec_aux(){
+  // list
+  auto Y = op_peek(0);
+  // list2
+  auto X = op_peek(1);
+  // X
+  auto obj = op_peek(2);
+
+
+  if (obj->type == LIST) {
+      std::vector<joy_object *> res_list;
+      auto head = new joy_object(LIST);
+      res_list.push_back(head);
+      res_list.push_back(X);
+      res_list.push_back(Y);
+      auto op_obj = new joy_object(OP);
+      op_obj->op = (voidFunction)treerec_aux;
+      res_list.push_back(op_obj);
+      auto temp_obj = new joy_object(res_list);
+      op_push(obj, LIST);
+      op_push(temp_obj, LIST);
+      op_push(Y, Y->type);
+      op_comb_i();
+  }
+  else {
+    op_clear_stack();
+    op_push(obj, obj->type);
+    op_push(X, LIST);
+    op_comb_i();
+  }
+}
+
+void op_comb_treerec() {
+  if (cur_stack_size() < 3) {
+    std::cout << "Error - treerec expects 3 params\n!";
+    return;
+  }
+
+  // list
+  auto a = op_peek(0);
+  // list2
+  auto b = op_peek(1);
+  // X
+  auto c = op_peek(2);
+
+  if (a->type != LIST || b->type != LIST || c->type != LIST) {
+    std::cout << "type error on params!\n";
+    return;
+  }
+
+  auto l_c = get_list(c);
+
+  treerec_aux();
+  auto res = new joy_object(l_c);
+}
 
 // e.g.
 // 1 2 [1 +] -> 3
@@ -3358,6 +3414,8 @@ joy_object *op_append() {
   return res_obj;
 }
 
+
+
 joy_object *op_enconcat() {
   if (cur_stack_size() < 3) {
     std::cout << "ERROR - enconcat requires 3 params\n";
@@ -3807,15 +3865,15 @@ void op_comb_map() {
   // e.g. [10 +] required one more value to have the
   // correct arity
   // [dup +] also requires one more value
-  for (size_t i = 1; i < l_b.size(); i++) {
-    if (l_b[i]->type != OP)
-      return; // TODO: Error
-  }
+  //for (size_t i = 1; i < l_b.size(); i++) {
+   // if (l_b[i]->type != OP)
+     // return; // TODO: Error
+  //}
 
-  for (size_t i = 1; i < l_a.size(); i++) {
-    if (l_a[i]->type == OP)
-      return; // TODO Error
-  }
+  //for (size_t i = 1; i < l_a.size(); i++) {
+   // if (l_a[i]->type == OP)
+   //   return; // TODO Error
+  //}
 
   op_pop();
   op_pop();
@@ -3827,10 +3885,14 @@ void op_comb_map() {
     op_push(l_a[i], l_a[i]->type);
 
     for (size_t j = 1; j < l_b.size(); j++) {
-      l_b[j]->op();
+      //l_b[j]->op();
+      if (l_b[j]->type == OP)
+        l_b[j]->op();
+      else
+        op_push(l_b[j], l_b[j]->type);
     }
 
-    while (cur_stack_size() > 0) {
+    while(cur_stack_size() > 0) {
       auto res = op_pop();
       res_list.push_back(res);
     }
@@ -4054,7 +4116,8 @@ void setup_builtins() {
   // builtins["some"] = (voidFunction)op_comb_split;
   // builtins["all"] = (voidFunction)op_comb_split;
   // builtins["treestep"] = (voidFunction)op_comb_split;
-  // builtins["treerec"] = (voidFunction)op_comb_treerec;
+  builtins["treerec"] = (voidFunction)op_comb_treerec;
+  builtins["treerec_aux"] = (voidFunction)treerec_aux;
   // builtins["treegenrec"] = (voidFunction)op_comb_split;
 
   /** misc **/
