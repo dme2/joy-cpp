@@ -2865,6 +2865,92 @@ void op_comb_primrec() {
   return;
 }
 
+void op_comb_some() {
+  if (cur_stack_size() < 2) {
+    std::cout << "Error - some expects 2 params\n!";
+    return;
+  }
+
+  // test 
+  auto b = op_peek(0);
+  // list 
+  auto a = op_peek(1);
+
+  if (a->type != LIST || b->type != LIST) {
+    std::cout << "type error on params!\n";
+    return;
+  }
+
+  for (int i = 0; i < 2 ; i++) {
+    op_pop();
+  }
+
+  joy_object* res = new joy_object(false);
+
+  auto l_a = get_list(a);
+  for (int i = 1; i < l_a.size(); i++) {
+    op_push(l_a[i], l_a[i]->type);
+    op_push(b, b->type);
+    op_comb_i();
+    if (cur_stack_size()>1 && get_type(op_peek(0)) == BOOL) {
+      if (get_bool(op_peek(0)) == true) {
+        res = new joy_object(true);
+        op_pop();
+        break;
+      }
+      else {
+        op_pop();
+      }
+    }
+  }
+
+  op_push(res, BOOL);
+  return;
+}
+
+void op_comb_all() {
+  if (cur_stack_size() < 2) {
+    std::cout << "Error - all expects 2 params\n!";
+    return;
+  }
+
+  // list
+  auto a = op_peek(1);
+  // P1 
+  auto b = op_peek(0);
+
+  if (a->type != LIST || b->type != LIST) {
+    std::cout << "type error on params!\n";
+    return;
+  }
+
+  for (int i = 0; i < 2 ; i++) {
+    op_pop();
+  }
+
+  joy_object* res = new joy_object(true);
+
+  auto l_a = get_list(a);
+  for (int i = 1; i < l_a.size(); i++) {
+    op_push(l_a[i], l_a[i]->type);
+    op_push(b, b->type);
+    op_comb_i();
+    if (cur_stack_size()>1 && get_type(op_peek(0)) == BOOL) {
+      if (get_bool(op_peek(0)) == false) {
+        res = new joy_object(false);
+        op_pop();
+        break;
+      }
+      else {
+        op_pop();
+      }
+    }
+  }
+
+  op_push(res, BOOL);
+  return;
+}
+
 joy_object* op_append();
 
 void treerec_aux(){
@@ -2922,6 +3008,45 @@ void op_comb_treerec() {
   treerec_aux();
   auto res = new joy_object(l_c);
 }
+
+void op_comb_treestep() {
+  if (cur_stack_size() < 2) {
+    std::cout << "Error - treestep expects 2 params\n!";
+    return;
+  }
+
+  // P1
+  auto a = op_peek(0);
+  // Tree 
+  auto b = op_peek(1);
+
+  if (a->type != LIST || b->type != LIST) {
+    std::cout << "type error on params!\n";
+    return;
+  }
+
+  op_pop();
+  op_pop();
+
+  auto l_b = get_list(b);
+  
+  for (int i = 1; i < l_b.size(); i++) {
+    if (l_b[i]->type == LIST){
+      op_push(l_b[i], l_b[i]->type);
+      op_push(a, a->type);
+      op_comb_treestep();
+    }
+    else {
+      op_push(l_b[i], l_b[i]->type);
+      op_push(a, a->type);
+      op_comb_i();
+    }
+  }
+
+  return;
+}
+
+
 
 // e.g.
 // 1 2 [1 +] -> 3
@@ -4113,9 +4238,9 @@ void setup_builtins() {
   // builtins["times"] = (voidFunction)op_comb_split;
   // builtins["infra"] = (voidFunction)op_comb_split;
   builtins["primrec"] = (voidFunction)op_comb_primrec;
-  // builtins["some"] = (voidFunction)op_comb_split;
-  // builtins["all"] = (voidFunction)op_comb_split;
-  // builtins["treestep"] = (voidFunction)op_comb_split;
+  builtins["some"] = (voidFunction)op_comb_some;
+  builtins["all"] = (voidFunction)op_comb_all;
+  builtins["treestep"] = (voidFunction)op_comb_treestep;
   builtins["treerec"] = (voidFunction)op_comb_treerec;
   builtins["treerec_aux"] = (voidFunction)treerec_aux;
   // builtins["treegenrec"] = (voidFunction)op_comb_split;
@@ -4260,7 +4385,14 @@ parse_ident(std::string::const_iterator i, std::string *input,
   bool user_ident = false;
 
   while (i != input->end()) {
-    if (*i == ' ' || *i == ']' || *i == '}' || *i == '=') {
+    if (*i == '=' && i+1 != input->end()) {
+      std::cout << "parsing =\n";
+      if (*(i+1) == '=') {
+        std::cout << "+1\n";
+        break;
+      }
+    }
+    if (*i == ' ' || *i == ']' || *i == '}') {// || *i == '=') {
       break;
     }
     cur_ident += *i;
