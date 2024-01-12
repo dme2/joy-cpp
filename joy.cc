@@ -1584,7 +1584,7 @@ joy_object *op_and() {
     op_pop();
     op_push(c, BOOL);
   } else {
-    std::cout << "or requires boolean valuess or sets!";
+    std::cout << "or requires boolean values or sets!";
     return nullptr;
   }
 
@@ -2191,9 +2191,10 @@ void execute_term(bool is_x = false) {
     if (l[i]->type == OP) {
       l[i]->op();
     } else {
-      // temp_stack[--temp_stack_ptr] = l[i];
       op_push(l[i], l[i]->type);
       if (l[i]->type == DEF) {
+        auto data = l[i][1];
+        std::cout << data.type << "\n";
         execute_term();
       }
     }
@@ -4011,9 +4012,15 @@ void op_comb_map() {
   for (size_t i = 1; i < l_a.size(); i++) {
     op_push(l_a[i], l_a[i]->type);
 
+    // TODO: if it's a definition, we need to a list to the stack
     for (size_t j = 1; j < l_b.size(); j++) {
-      //l_b[j]->op();
-      if (l_b[j]->type == OP)
+      if (l_b[j]->type == DEF)  {
+        auto def_list = get_list(l_b[j]);
+        for (int k = 1; k < def_list.size(); k++) {
+          op_push(def_list[k], def_list[k]->type);
+        }
+      }
+      else if (l_b[j]->type == OP)
         l_b[j]->op();
       else
         op_push(l_b[j], l_b[j]->type);
@@ -4388,9 +4395,7 @@ parse_ident(std::string::const_iterator i, std::string *input,
 
   while (i != input->end()) {
     if (*i == '=' && i+1 != input->end()) {
-      std::cout << "parsing =\n";
       if (*(i+1) == '=') {
-        std::cout << "+1\n";
         break;
       }
     }
@@ -4487,6 +4492,10 @@ parse_list(std::string::const_iterator it, std::string *input, Type t) {
         cur_list.push_back(o);
       } else {
         std::tie(it, o, is_def, user_ident) = parse_ident(it, input);
+        if (o == nullptr) {
+          it = input->end();
+          continue;
+        }
         cur_list.push_back(o);
       }
     } else if (*it == 'f') {
@@ -4498,6 +4507,11 @@ parse_list(std::string::const_iterator it, std::string *input, Type t) {
       } else {
         // std::cout << "PARSING IDENT IN LIST\n";
         std::tie(it, o, is_def, user_ident) = parse_ident(it, input);
+        if (o == nullptr) {
+         it = input->end();
+         continue;
+        }
+ 
         cur_list.push_back(o);
       }
     }
@@ -4505,6 +4519,10 @@ parse_list(std::string::const_iterator it, std::string *input, Type t) {
     else if (*it == '+' || *it == '*' || *it == '/' || *it == '>' ||
              *it == '<' || *it == '=' || *it == '-' || std::isalpha(*it)) {
       std::tie(it, o, is_def, user_ident) = parse_ident(it, input);
+      if (o == nullptr) {
+        it = input->end();
+        continue;
+      }
       cur_list.push_back(o);
     } else
       ++it;
@@ -4641,7 +4659,6 @@ void parse_line(std::string input, joy_object *cur_stack = *stck) {
         continue;
       }
     }
-    //}
     else if (*it == '[') {
       // it = std::get<0>(parse_list(++it, &input));
       std::tie(it, o) = parse_list(++it, &input, LIST);
@@ -4659,6 +4676,10 @@ void parse_line(std::string input, joy_object *cur_stack = *stck) {
         op_push(o, BOOL, cur_stack);
       } else { // TODO: same for other parse_ident operations?
         std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true);
+        if (o == nullptr) {
+          it = input.end();
+          continue;
+        }
       }
     } else if (*it == 'f') {
       // false?
@@ -4668,6 +4689,10 @@ void parse_line(std::string input, joy_object *cur_stack = *stck) {
         op_push(o, BOOL, cur_stack);
       } else { // TODO: same for other parse_ident operations?
         std::tie(it, o, is_def, user_ident) = parse_ident(it, &input, true);
+        if (o == nullptr) {
+          it = input.end();
+          continue;
+        }
       }
     } else if (*it == '+' || *it == '*' || *it == '/' || *it == '=' ||
                *it == '>' || *it == '<' || *it == '-' || std::isalpha(*it)) {
