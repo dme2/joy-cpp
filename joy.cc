@@ -46,7 +46,6 @@
  *     [x] swons
  *     [x] x
  *     [x] primrec
- *     [] powerlist
  *     [x] linrec
  *     [x] binrec
  *     ... and many more
@@ -59,6 +58,9 @@
            when necessary)
  *  [x] plan out recursive combinators
  *  [x] fix definition parsing inside of quoted programs
+ *  [] move function return types to std optional
+ *  [] maybe move to using unique or shared ptrs?
+ *  [] write blog post
  */
 
 #define STACK_SIZE 1000
