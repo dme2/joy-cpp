@@ -2,7 +2,7 @@ A fairly straightforaward implementation of the Joy programming language.
 
 Joy is a stack based language (think Forth), with some higher level features like combinators, maps, and folds (think Haskell).
 
-Here are some small examples, try typing them in after compiling and running joy.cpp
+Here are some small examples, try typing them in after compiling and running ./joy
 
 ```
 joy~> X == 1 
